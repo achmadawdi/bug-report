@@ -21,6 +21,23 @@ export function displayNumber(value: number | undefined | null): string {
 	return String(value);
 }
 
+export function displayDate(value: string | undefined | null): string {
+	if (value === undefined || value === null || value.trim() === '') {
+		return EMPTY_DISPLAY;
+	}
+
+	const parsed = new Date(value.includes('T') ? value : `${value}T00:00:00`);
+	if (Number.isNaN(parsed.getTime())) {
+		return value;
+	}
+
+	return parsed.toLocaleDateString(undefined, {
+		year: 'numeric',
+		month: 'short',
+		day: 'numeric'
+	});
+}
+
 export function displayCount(value: number | undefined | null): string {
 	if (value === undefined || value === null || value === 0) {
 		return EMPTY_DISPLAY;

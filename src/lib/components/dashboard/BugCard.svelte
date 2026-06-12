@@ -1,10 +1,19 @@
 <script lang="ts">
 	import type { BugStatus, EvidenceMedia, Issue } from '$lib/types.js';
-	import { SEVERITY_STYLES, STATUSES, STATUS_LABELS, STATUS_STYLES } from '$lib/constants.js';
+	import {
+		AREA_BADGE_STYLE,
+		CATEGORY_BADGE_STYLE,
+		SEVERITY_STYLES,
+		STATUSES,
+		STATUS_DOT_STYLES,
+		STATUS_LABELS,
+		STATUS_STYLES
+	} from '$lib/constants.js';
 	import { displayList, EMPTY_DISPLAY } from '$lib/format.js';
 	import { Card } from '$lib/components/ui/card/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
-	import { Button } from '$lib/components/ui/button/index.js';
+	import { badgeVariants } from '$lib/components/ui/badge/badge.svelte';
+	import { cn } from '$lib/utils.js';
 	import {
 		DropdownMenu,
 		DropdownMenuContent,
@@ -17,6 +26,7 @@
 	import { toast } from 'svelte-sonner';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
+	import { ui } from '$lib/ui-layout.js';
 
 	let {
 		issue,
@@ -28,9 +38,17 @@
 
 	let previewMedia = $state<EvidenceMedia | null>(null);
 	let lightboxOpen = $state(false);
+	let statusForm = $state<HTMLFormElement | null>(null);
 
 	const findingPreview = $derived(displayList(issue.finding)[0]);
 	const mediaCount = $derived(issue.evidence_media?.length ?? 0);
+
+	function submitStatus(status: BugStatus) {
+		if (!statusForm) return;
+		const statusInput = statusForm.elements.namedItem('status') as HTMLInputElement | null;
+		if (statusInput) statusInput.value = status;
+		statusForm.requestSubmit();
+	}
 
 	function openPreview(media: EvidenceMedia) {
 		previewMedia = media;
@@ -62,10 +80,13 @@
 		onkeydown={handleCardKeydown}
 	>
 		<Card
-			class="border-border bg-card transition-colors hover:border-primary/40 hover:bg-card/80"
+			class={cn(
+				ui.cardPanel,
+				'transition-colors hover:border-primary/40 hover:bg-card/80'
+			)}
 		>
-			<div class="flex gap-4 p-4 sm:gap-5 sm:p-5">
-				<div class="flex min-w-0 flex-1 flex-col gap-3">
+			<div class="flex {ui.gridLg} {ui.cardPadding}">
+				<div class="flex min-w-0 flex-1 flex-col gap-2">
 					<div class="flex items-start justify-between gap-3">
 						<div class="min-w-0 space-y-1">
 							<p class="font-mono text-xs text-muted-foreground">{issue.id}</p>
@@ -76,7 +97,7 @@
 						/>
 					</div>
 
-					<div class="flex flex-wrap items-center gap-2">
+					<div class={ui.badgeRow}>
 						<Badge variant="outline" class={SEVERITY_STYLES[issue.severity].badge}>
 							{issue.severity}
 						</Badge>
@@ -90,6 +111,7 @@
 							onkeydown={(event) => event.stopPropagation()}
 						>
 							<form
+								bind:this={statusForm}
 								method="POST"
 								action="?/updateStatus"
 								use:enhance={() => {
@@ -113,32 +135,39 @@
 								}}
 							>
 								<input type="hidden" name="id" value={issue.id} />
+								<input type="hidden" name="status" value={issue.status} />
 								<DropdownMenu>
 									<DropdownMenuTrigger>
 										{#snippet child({ props })}
-											<Button
+											<button
 												{...props}
 												type="button"
-												size="sm"
-												variant="outline"
-												class="h-6 gap-1 px-2 {STATUS_STYLES[issue.status]}"
+												class={cn(
+													badgeVariants({ variant: 'outline' }),
+													STATUS_STYLES[issue.status]
+												)}
 											>
 												{STATUS_LABELS[issue.status]}
-												<ChevronDownIcon class="size-3" />
-											</Button>
+												<ChevronDownIcon class="size-3 opacity-70" />
+											</button>
 										{/snippet}
 									</DropdownMenuTrigger>
 									<DropdownMenuContent align="start">
 										{#each STATUSES as status}
-											<DropdownMenuItem>
-												<button
-													type="submit"
-													name="status"
-													value={status}
-													class="w-full text-left"
-												>
-													{STATUS_LABELS[status as BugStatus]}
-												</button>
+											<DropdownMenuItem
+												class={cn(
+													'cursor-pointer',
+													status === issue.status && 'bg-accent'
+												)}
+												onclick={(event) => {
+													event.stopPropagation();
+													submitStatus(status);
+												}}
+											>
+												<span
+													class="size-2 shrink-0 rounded-full {STATUS_DOT_STYLES[status]}"
+												></span>
+												{STATUS_LABELS[status]}
 											</DropdownMenuItem>
 										{/each}
 									</DropdownMenuContent>
@@ -146,8 +175,12 @@
 							</form>
 						</span>
 
-						<Badge variant="secondary">{issue.area}</Badge>
-						<Badge variant="outline">{issue.category}</Badge>
+						<Badge variant="outline" class={AREA_BADGE_STYLE}>
+							{issue.area}
+						</Badge>
+						<Badge variant="outline" class={CATEGORY_BADGE_STYLE}>
+							{issue.category}
+						</Badge>
 					</div>
 
 					<p
@@ -159,27 +192,17 @@
 						{findingPreview}
 					</p>
 
-					<div class="mt-auto text-xs text-muted-foreground">
+					<div class="text-xs text-muted-foreground">
 						<span>Media {mediaCount > 0 ? mediaCount : EMPTY_DISPLAY}</span>
 					</div>
 				</div>
 
-				<div
-					class="hidden w-36 shrink-0 sm:block md:w-44 lg:w-52"
-					role="presentation"
-					onclick={(event) => event.stopPropagation()}
-					onkeydown={(event) => event.stopPropagation()}
-				>
+				<div class="hidden w-32 shrink-0 sm:block md:w-40 lg:w-44">
 					<EvidenceThumbnails {issue} variant="card" onPreview={openPreview} />
 				</div>
 			</div>
 
-			<div
-				class="border-t border-border px-4 pb-4 sm:hidden"
-				role="presentation"
-				onclick={(event) => event.stopPropagation()}
-				onkeydown={(event) => event.stopPropagation()}
-			>
+			<div class="border-t border-border {ui.cardPadding} sm:hidden">
 				<EvidenceThumbnails {issue} variant="card" onPreview={openPreview} />
 			</div>
 		</Card>

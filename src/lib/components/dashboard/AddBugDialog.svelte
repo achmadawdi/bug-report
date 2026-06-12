@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Issue } from '$lib/types.js';
 	import { SEVERITIES, STATUSES, STATUS_LABELS } from '$lib/constants.js';
+	import { ui } from '$lib/ui-layout.js';
 	import {
 		Dialog,
 		DialogContent,
@@ -57,18 +58,18 @@
 </script>
 
 <Dialog bind:open>
-	<DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-		<DialogHeader>
-			<DialogTitle>Add Bug</DialogTitle>
-			<DialogDescription>
-				A new issue will be created as <span class="font-mono">{nextId}</span>.
+	<DialogContent class="flex max-h-[min(90vh,44rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
+		<DialogHeader class={ui.overlayHeader}>
+			<DialogTitle class="text-lg leading-tight">Add Bug</DialogTitle>
+			<DialogDescription class="text-sm leading-relaxed">
+				A new issue will be created as <span class="font-mono text-foreground">{nextId}</span>.
 			</DialogDescription>
 		</DialogHeader>
 
 		<form
 			method="POST"
 			action="?/addIssue"
-			class="space-y-4"
+			class="flex min-h-0 flex-1 flex-col"
 			use:enhance={() => {
 				saving = true;
 				return async ({ result, update }) => {
@@ -90,101 +91,143 @@
 				};
 			}}
 		>
-			<div class="space-y-2">
-				<Label for="new-title">Title</Label>
-				<Input id="new-title" name="title" bind:value={draft.title} required />
+			<div class={ui.overlayBody}>
+				<section class={ui.section}>
+					<h3 class={ui.sectionTitle}>Issue</h3>
+
+					<div class={ui.field}>
+						<Label for="new-title" class={ui.label}>Title</Label>
+						<Input
+							id="new-title"
+							name="title"
+							class={ui.input}
+							bind:value={draft.title}
+							required
+						/>
+					</div>
+				</section>
+
+				<section class={ui.section}>
+					<h3 class={ui.sectionTitle}>Classification</h3>
+
+					<div class="grid {ui.grid} sm:grid-cols-2">
+						<div class={ui.field}>
+							<Label class={ui.label}>Area</Label>
+							<Select
+								type="single"
+								value={draft.area}
+								onValueChange={(value) => {
+									if (value) draft.area = value;
+								}}
+							>
+								<SelectTrigger class={ui.selectTrigger}>{draft.area}</SelectTrigger>
+								<SelectContent>
+									{#each areas as area}
+										<SelectItem value={area}>{area}</SelectItem>
+									{/each}
+									<SelectItem value="Global UI">Global UI</SelectItem>
+									<SelectItem value="Multiplayer">Multiplayer</SelectItem>
+								</SelectContent>
+							</Select>
+							<input type="hidden" name="area" value={draft.area} />
+						</div>
+
+						<div class={ui.field}>
+							<Label for="new-category" class={ui.label}>Category</Label>
+							<Input
+								id="new-category"
+								name="category"
+								class={ui.input}
+								bind:value={draft.category}
+								required
+							/>
+						</div>
+					</div>
+
+					<div class="grid {ui.grid} sm:grid-cols-2">
+						<div class={ui.field}>
+							<Label class={ui.label}>Severity</Label>
+							<Select
+								type="single"
+								value={draft.severity}
+								onValueChange={(value) => {
+									if (value) draft.severity = value as Issue['severity'];
+								}}
+							>
+								<SelectTrigger class={ui.selectTrigger}>{draft.severity}</SelectTrigger>
+								<SelectContent>
+									{#each SEVERITIES as severity}
+										<SelectItem value={severity}>{severity}</SelectItem>
+									{/each}
+								</SelectContent>
+							</Select>
+							<input type="hidden" name="severity" value={draft.severity} />
+						</div>
+
+						<div class={ui.field}>
+							<Label class={ui.label}>Status</Label>
+							<Select
+								type="single"
+								value={draft.status}
+								onValueChange={(value) => {
+									if (value) draft.status = value as Issue['status'];
+								}}
+							>
+								<SelectTrigger class={ui.selectTrigger}>
+									{STATUS_LABELS[draft.status]}
+								</SelectTrigger>
+								<SelectContent>
+									{#each STATUSES as status}
+										<SelectItem value={status}>{STATUS_LABELS[status]}</SelectItem>
+									{/each}
+								</SelectContent>
+							</Select>
+							<input type="hidden" name="status" value={draft.status} />
+						</div>
+					</div>
+				</section>
+
+				<section class={ui.section}>
+					<h3 class={ui.sectionTitle}>Details</h3>
+
+					<div class={ui.field}>
+						<Label for="new-finding" class={ui.label}>Findings (one per line)</Label>
+						<Textarea
+							id="new-finding"
+							name="finding"
+							rows={3}
+							class={ui.textarea}
+							bind:value={draft.finding}
+							required
+						/>
+					</div>
+
+					<div class={ui.field}>
+						<Label for="new-expected" class={ui.label}>Expected Result (one per line)</Label>
+						<Textarea
+							id="new-expected"
+							name="expected_result"
+							rows={3}
+							class={ui.textarea}
+							bind:value={draft.expected_result}
+							required
+						/>
+					</div>
+
+					<div class={ui.field}>
+						<Label for="new-notes" class={ui.label}>Notes</Label>
+						<Textarea
+							id="new-notes"
+							name="notes"
+							rows={2}
+							class={ui.textareaSm}
+							bind:value={draft.notes}
+						/>
+					</div>
+				</section>
 			</div>
 
-			<div class="grid gap-4 sm:grid-cols-2">
-				<div class="space-y-2">
-					<Label>Area</Label>
-					<Select
-						type="single"
-						value={draft.area}
-						onValueChange={(value) => {
-							if (value) draft.area = value;
-						}}
-					>
-						<SelectTrigger class="w-full">{draft.area}</SelectTrigger>
-						<SelectContent>
-							{#each areas as area}
-								<SelectItem value={area}>{area}</SelectItem>
-							{/each}
-							<SelectItem value="Global UI">Global UI</SelectItem>
-							<SelectItem value="Multiplayer">Multiplayer</SelectItem>
-						</SelectContent>
-					</Select>
-					<input type="hidden" name="area" value={draft.area} />
-				</div>
-
-				<div class="space-y-2">
-					<Label for="new-category">Category</Label>
-					<Input id="new-category" name="category" bind:value={draft.category} required />
-				</div>
-			</div>
-
-			<div class="grid gap-4 sm:grid-cols-2">
-				<div class="space-y-2">
-					<Label>Severity</Label>
-					<Select
-						type="single"
-						value={draft.severity}
-						onValueChange={(value) => {
-							if (value) draft.severity = value as Issue['severity'];
-						}}
-					>
-						<SelectTrigger class="w-full">{draft.severity}</SelectTrigger>
-						<SelectContent>
-							{#each SEVERITIES as severity}
-								<SelectItem value={severity}>{severity}</SelectItem>
-							{/each}
-						</SelectContent>
-					</Select>
-					<input type="hidden" name="severity" value={draft.severity} />
-				</div>
-
-				<div class="space-y-2">
-					<Label>Status</Label>
-					<Select
-						type="single"
-						value={draft.status}
-						onValueChange={(value) => {
-							if (value) draft.status = value as Issue['status'];
-						}}
-					>
-						<SelectTrigger class="w-full">{STATUS_LABELS[draft.status]}</SelectTrigger>
-						<SelectContent>
-							{#each STATUSES as status}
-								<SelectItem value={status}>{STATUS_LABELS[status]}</SelectItem>
-							{/each}
-						</SelectContent>
-					</Select>
-					<input type="hidden" name="status" value={draft.status} />
-				</div>
-			</div>
-
-			<div class="space-y-2">
-				<Label for="new-finding">Findings (one per line)</Label>
-				<Textarea id="new-finding" name="finding" rows={4} bind:value={draft.finding} required />
-			</div>
-
-			<div class="space-y-2">
-				<Label for="new-expected">Expected Result (one per line)</Label>
-				<Textarea
-					id="new-expected"
-					name="expected_result"
-					rows={4}
-					bind:value={draft.expected_result}
-					required
-				/>
-			</div>
-
-			<div class="space-y-2">
-				<Label for="new-notes">Notes</Label>
-				<Textarea id="new-notes" name="notes" rows={3} bind:value={draft.notes} />
-			</div>
-
-			<DialogFooter>
+			<DialogFooter class="m-0 rounded-none {ui.overlayFooter}">
 				<Button type="button" variant="outline" onclick={() => (open = false)}>Cancel</Button>
 				<Button type="submit" disabled={saving}>
 					{saving ? 'Adding...' : 'Add Bug'}

@@ -2,6 +2,7 @@
 	import type { ReportSummary } from '$lib/types.js';
 	import { SEVERITIES, SEVERITY_STYLES, STATUSES, STATUS_LABELS } from '$lib/constants.js';
 	import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card/index.js';
+	import { ui } from '$lib/ui-layout.js';
 	import BarChart3Icon from '@lucide/svelte/icons/bar-chart-3';
 
 	let { summary }: { summary: ReportSummary } = $props();
@@ -14,16 +15,16 @@
 	);
 </script>
 
-<Card size="sm" class="gap-0 border-border bg-card py-0">
-	<CardHeader class="px-4 py-3">
+<Card size="sm" class={ui.cardPanel}>
+	<CardHeader class={ui.cardHeader}>
 		<CardTitle class="flex items-center gap-2 text-sm font-semibold">
 			<BarChart3Icon class="size-4 text-primary" />
 			Breakdown
 		</CardTitle>
 	</CardHeader>
-	<CardContent class="space-y-4 px-4 pb-3 pt-0">
-		<div class="space-y-2">
-			<p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">By Severity</p>
+	<CardContent class="space-y-4 {ui.cardContent}">
+		<div class={ui.field}>
+			<p class={ui.sectionTitle}>By Severity</p>
 			<div class="flex h-3 overflow-hidden rounded-full bg-secondary">
 				{#each SEVERITIES as severity}
 					{@const count = summary.by_severity[severity]}
@@ -36,7 +37,7 @@
 					{/if}
 				{/each}
 			</div>
-			<div class="grid grid-cols-2 gap-2">
+			<div class="grid grid-cols-2 {ui.grid}">
 				{#each SEVERITIES as severity}
 					<div class="flex items-center justify-between text-xs">
 						<span class="flex items-center gap-2 text-muted-foreground">
@@ -49,8 +50,8 @@
 			</div>
 		</div>
 
-		<div class="space-y-2">
-			<p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">By Status</p>
+		<div class={ui.field}>
+			<p class={ui.sectionTitle}>By Status</p>
 			<div class="flex h-3 overflow-hidden rounded-full bg-secondary">
 				{#each STATUSES as status}
 					{@const count = summary.by_status[status]}
@@ -69,7 +70,7 @@
 					{/if}
 				{/each}
 			</div>
-			<div class="grid grid-cols-2 gap-2">
+			<div class="grid grid-cols-2 {ui.grid}">
 				{#each STATUSES as status}
 					<div class="flex items-center justify-between text-xs">
 						<span class="text-muted-foreground">{STATUS_LABELS[status]}</span>

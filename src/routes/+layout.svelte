@@ -3,6 +3,7 @@
 	import favicon from '$lib/assets/favicon.svg';
 	import { Toaster } from '$lib/components/ui/sonner/index.js';
 	import TabBar from '$lib/components/tabs/TabBar.svelte';
+	import NavigationProgressBar from '$lib/components/NavigationProgressBar.svelte';
 
 	let { data, children } = $props();
 </script>
@@ -18,6 +19,7 @@
 </svelte:head>
 
 <div class="dark min-h-screen bg-background text-foreground">
+	<NavigationProgressBar />
 	<TabBar projects={data.projects} />
 	{@render children()}
 </div>

@@ -105,7 +105,7 @@
 {:else if showPlaceholder}
 	{#if variant === 'card'}
 		<div
-			class="flex h-full min-h-28 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-secondary/20 p-4 text-center"
+			class="flex h-full min-h-24 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-secondary/20 p-3 text-center"
 		>
 			<ImageIcon class="size-6 text-muted-foreground" />
 			<p class="line-clamp-3 text-xs text-muted-foreground">{issue.evidence}</p>
@@ -120,7 +120,7 @@
 	{/if}
 {:else if variant === 'card' && !hasEvidenceContent(issue)}
 	<div
-		class="flex h-full min-h-28 flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-border/60 bg-secondary/10 p-4 text-center"
+		class="flex h-full min-h-24 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border/60 bg-secondary/10 p-3 text-center"
 	>
 		<ImageIcon class="size-5 text-muted-foreground/50" />
 		<p class="text-[11px] text-muted-foreground/70">No media attached</p>

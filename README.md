@@ -46,3 +46,16 @@ bun run build    # production build
 bun run preview  # preview production build
 bun run check    # typecheck
 ```
+
+## Deploying to Vercel
+
+This app uses the [Vercel adapter](https://svelte.dev/docs/kit/adapter-vercel) and [Vercel Blob](https://vercel.com/docs/storage/vercel-blob) for persistent storage in production.
+
+1. Push the repository to GitHub and import it in [Vercel](https://vercel.com/new).
+2. In the Vercel project, create a **Blob** store (Storage → Blob).
+3. Add the `BLOB_READ_WRITE_TOKEN` environment variable to the project (Vercel can link this automatically when you connect the Blob store).
+4. Deploy. On first request, bundled `data/projects/**` seed data is copied into Blob if the store is empty.
+
+**Local development** continues to use the filesystem (`data/projects/` and `static/evidence/`) when `BLOB_READ_WRITE_TOKEN` is not set.
+
+**Evidence uploads** on Vercel are stored in Blob and served via public URLs. Existing `/evidence/...` paths from local dev still work when served from `static/`.

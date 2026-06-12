@@ -10,11 +10,13 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
+	import { ui } from '$lib/ui-layout.js';
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import { toast } from 'svelte-sonner';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import { upsertTab, saveOpenTabs, loadOpenTabs } from '$lib/tabs.js';
+	import { preloadRoute } from '$lib/preload.js';
 
 	let {
 		open = $bindable(false),
@@ -41,8 +43,8 @@
 </script>
 
 <Dialog bind:open>
-	<DialogContent class="max-h-[85vh] overflow-hidden sm:max-w-lg">
-		<DialogHeader>
+	<DialogContent class="flex max-h-[min(90vh,44rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
+		<DialogHeader class={ui.overlayHeader}>
 			<DialogTitle>{mode === 'create' ? 'New Project' : 'Open Project'}</DialogTitle>
 			<DialogDescription>
 				{#if mode === 'create'}
@@ -53,18 +55,18 @@
 			</DialogDescription>
 		</DialogHeader>
 
-		<div class="space-y-6 overflow-y-auto pr-1">
+		<div class="{ui.overlayBody} {ui.formSections}">
 			{#if mode === 'all' && projects.length > 0}
-				<div class="space-y-2">
-					<p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-						Projects
-					</p>
-					<ul class="divide-y divide-border rounded-lg border border-border">
+				<section class={ui.section}>
+					<p class={ui.sectionTitle}>Projects</p>
+					<ul class="divide-y divide-border overflow-hidden rounded-lg border border-border">
 						{#each projects as project (project.slug)}
 							<li>
 								<button
 									type="button"
 									class="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-secondary/50"
+									onpointerenter={() => preloadRoute(`/p/${project.slug}`)}
+									onfocus={() => preloadRoute(`/p/${project.slug}`)}
 									onclick={() => openProject(project)}
 								>
 									<div class="min-w-0">
@@ -78,9 +80,11 @@
 							</li>
 						{/each}
 					</ul>
-				</div>
+				</section>
 			{:else if mode === 'all'}
-				<div class="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+				<div
+					class="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground"
+				>
 					No projects found in <code class="text-xs">data/projects/</code>.
 				</div>
 			{/if}
@@ -88,7 +92,7 @@
 			<form
 				method="POST"
 				action="/projects?/createProject"
-				class="space-y-3 rounded-lg border border-border bg-secondary/20 p-4"
+				class="space-y-4 rounded-lg border border-border bg-secondary/20 {ui.cardPadding}"
 				use:enhance={() => {
 					creating = true;
 					return async ({ result, update }) => {
@@ -114,11 +118,12 @@
 					};
 				}}
 			>
-				<div class="space-y-2">
-					<Label for="new-project-name">New project</Label>
+				<div class={ui.field}>
+					<Label for="new-project-name" class={ui.label}>New project</Label>
 					<Input
 						id="new-project-name"
 						name="name"
+						class={ui.input}
 						placeholder="My QA Report"
 						bind:value={newProjectName}
 						required

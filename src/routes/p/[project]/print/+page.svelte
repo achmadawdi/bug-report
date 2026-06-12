@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { SEVERITIES, STATUSES, STATUS_LABELS } from '$lib/constants.js';
 	import { isFiltersActive } from '$lib/filters.js';
-	import { displayText } from '$lib/format.js';
+	import { displayDate, displayText } from '$lib/format.js';
 	import IssueFieldsDisplay from '$lib/components/dashboard/IssueFieldsDisplay.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import PrinterIcon from '@lucide/svelte/icons/printer';
@@ -20,7 +20,7 @@
 </svelte:head>
 
 <div class="print-shell min-h-screen bg-white text-zinc-900">
-	<div class="no-print sticky top-0 z-10 flex items-center justify-between border-b border-zinc-200 bg-white/95 px-6 py-3 backdrop-blur">
+	<div class="no-print sticky top-0 z-10 flex items-center justify-between border-b border-zinc-200 bg-white/95 px-4 py-4 backdrop-blur md:px-6">
 		<div>
 			<p class="font-semibold">Print Preview</p>
 			<p class="text-sm text-zinc-500">
@@ -34,13 +34,14 @@
 		</Button>
 	</div>
 
-	<article class="mx-auto max-w-4xl px-8 py-10">
+	<article class="mx-auto max-w-4xl px-4 py-8 md:px-6">
 		<header class="mb-8 border-b border-zinc-200 pb-6">
 			<p class="text-sm uppercase tracking-wide text-zinc-500">{displayText(data.report.report.type)}</p>
 			<h1 class="mt-1 text-3xl font-bold">{displayText(data.report.report.title)}</h1>
 			<div class="mt-4 grid gap-2 text-sm text-zinc-700 sm:grid-cols-2">
 				<p><strong>Platform:</strong> {displayText(data.report.report.platform)}</p>
 				<p><strong>Version tested:</strong> {displayText(data.report.report.version_tested)}</p>
+				<p><strong>Test date:</strong> {displayDate(data.report.report.test_date)}</p>
 				<p>
 					<strong>Tester:</strong>
 					{displayText(data.report.report.tester)} · {displayText(data.report.report.device)}

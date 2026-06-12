@@ -224,6 +224,7 @@ export const actions: Actions = {
 			device: String(formData.get('device') ?? ''),
 			tester: String(formData.get('tester') ?? ''),
 			tester_version: String(formData.get('tester_version') ?? ''),
+			test_date: String(formData.get('test_date') ?? ''),
 			test_scope: String(formData.get('test_scope') ?? ''),
 			version: String(formData.get('version') ?? ''),
 			source_file: String(formData.get('source_file') ?? '')

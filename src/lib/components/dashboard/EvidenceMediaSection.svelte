@@ -16,6 +16,7 @@
 	import LinkIcon from '@lucide/svelte/icons/link';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import PlayIcon from '@lucide/svelte/icons/play';
+	import { ui } from '$lib/ui-layout.js';
 
 	let { issue = $bindable() }: { issue: Issue } = $props();
 
@@ -33,8 +34,8 @@
 	}
 </script>
 
-<div class="space-y-4 rounded-lg border border-border p-4">
-	<div class="flex items-center justify-between gap-3">
+<div class="{ui.section} rounded-lg border border-border {ui.cardPadding}">
+	<div class="flex items-center justify-between {ui.grid}">
 		<div>
 			<h4 class="text-sm font-semibold">Evidence Media</h4>
 			<p class="text-xs text-muted-foreground">Upload files or paste image/video URLs.</p>
@@ -45,7 +46,7 @@
 	</div>
 
 	{#if (issue.evidence_media?.length ?? 0) > 0}
-		<div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+		<div class="grid grid-cols-2 {ui.grid} sm:grid-cols-3">
 			{#each issue.evidence_media ?? [] as media (media.src)}
 				<div class="group relative overflow-hidden rounded-md border border-border">
 					<button
@@ -116,7 +117,7 @@
 		method="POST"
 		action="?/uploadEvidence"
 		enctype="multipart/form-data"
-		class="grid gap-3 rounded-md border border-border/60 p-3"
+		class="grid {ui.grid} rounded-md border border-border/60 {ui.cardPadding}"
 		use:enhance={() => {
 			uploading = true;
 			return async ({ result, update }) => {
@@ -141,12 +142,12 @@
 		}}
 	>
 		<input type="hidden" name="id" value={issue.id} />
-		<div class="space-y-1.5">
-			<Label for="evidence-file">Upload file</Label>
+		<div class={ui.field}>
+			<Label for="evidence-file" class={ui.label}>Upload file</Label>
 			<Input id="evidence-file" name="file" type="file" accept="image/*,video/*" required />
 		</div>
-		<div class="space-y-1.5">
-			<Label for="upload-caption">Caption (optional)</Label>
+		<div class={ui.field}>
+			<Label for="upload-caption" class={ui.label}>Caption (optional)</Label>
 			<Input id="upload-caption" name="caption" placeholder="Short description" />
 		</div>
 		<Button type="submit" size="sm" disabled={uploading}>
@@ -158,7 +159,7 @@
 	<form
 		method="POST"
 		action="?/addEvidenceUrl"
-		class="grid gap-3 rounded-md border border-border/60 p-3"
+		class="grid {ui.grid} rounded-md border border-border/60 {ui.cardPadding}"
 		use:enhance={() => {
 			addingUrl = true;
 			return async ({ result, update }) => {
@@ -189,8 +190,8 @@
 		{#if urlType !== 'auto'}
 			<input type="hidden" name="type" value={urlType} />
 		{/if}
-		<div class="space-y-1.5">
-			<Label for="evidence-url">Paste URL</Label>
+		<div class={ui.field}>
+			<Label for="evidence-url" class={ui.label}>Paste URL</Label>
 			<Input
 				id="evidence-url"
 				name="url"
@@ -200,9 +201,9 @@
 				required
 			/>
 		</div>
-		<div class="grid gap-3 sm:grid-cols-2">
-			<div class="space-y-1.5">
-				<Label>Media type</Label>
+		<div class="grid {ui.grid} sm:grid-cols-2">
+			<div class={ui.field}>
+				<Label class={ui.label}>Media type</Label>
 				<Select
 					type="single"
 					value={urlType}
@@ -220,8 +221,8 @@
 					</SelectContent>
 				</Select>
 			</div>
-			<div class="space-y-1.5">
-				<Label for="url-caption">Caption (optional)</Label>
+			<div class={ui.field}>
+				<Label for="url-caption" class={ui.label}>Caption (optional)</Label>
 				<Input id="url-caption" name="caption" bind:value={evidenceCaption} />
 			</div>
 		</div>

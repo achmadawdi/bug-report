@@ -17,6 +17,8 @@
 		DropdownMenuTrigger
 	} from '$lib/components/ui/dropdown-menu/index.js';
 	import { Card, CardContent } from '$lib/components/ui/card/index.js';
+	import { ui } from '$lib/ui-layout.js';
+	import { cn } from '$lib/utils.js';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import DownloadIcon from '@lucide/svelte/icons/download';
 	import FileTextIcon from '@lucide/svelte/icons/file-text';
@@ -67,8 +69,13 @@
 </script>
 
 <div class="sticky top-4 z-20">
-	<Card class="border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
-		<CardContent class="space-y-2.5 p-3">
+	<Card
+		class={cn(
+			ui.cardPanel,
+			'border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80'
+		)}
+	>
+		<CardContent class="space-y-3 {ui.cardPadding}">
 			<!-- Row 1: search + count + actions -->
 			<div class="flex flex-wrap items-center gap-2">
 				<div class="relative min-w-[200px] flex-1">
@@ -84,7 +91,7 @@
 				</div>
 
 				<span
-					class="hidden shrink-0 rounded-md border border-border bg-secondary px-2 py-1 text-xs text-muted-foreground sm:inline"
+					class="hidden h-8 shrink-0 items-center rounded-md border border-border bg-secondary px-2 text-xs text-muted-foreground sm:inline-flex"
 				>
 					<span class="font-semibold text-foreground">{filteredCount}</span>/{issueTotal}
 				</span>
@@ -133,39 +140,32 @@
 
 			<!-- Row 2: severity chips + dropdown filters -->
 			<div class="flex flex-col gap-2 lg:flex-row lg:items-center">
-				<div class="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+				<div class="flex min-w-0 flex-1 items-center gap-2">
 					<Button
 						size="sm"
 						variant={filters.severity === 'all' ? 'default' : 'outline'}
-						class="h-7 px-2 text-xs"
+						class="h-8 min-w-0 flex-1 px-2 text-xs"
 						onclick={() => (filters.severity = 'all')}
 					>
-						All
-						<span class="ml-1 opacity-70">{totalCount}</span>
+						<span class="truncate">All</span>
+						<span class="ml-1 shrink-0 tabular-nums opacity-70">{totalCount}</span>
 					</Button>
 					{#each SEVERITIES as severity}
 						<Button
 							size="sm"
 							variant={filters.severity === severity ? 'default' : 'outline'}
-							class="h-7 px-2 text-xs {filters.severity === severity
+							class="h-8 min-w-0 flex-1 px-2 text-xs {filters.severity === severity
 								? ''
 								: SEVERITY_STYLES[severity].badge}"
 							onclick={() => (filters.severity = severity)}
 						>
-							{severity}
-							<span class="ml-1 opacity-70">{severityCounts[severity]}</span>
+							<span class="truncate">{severity}</span>
+							<span class="ml-1 shrink-0 tabular-nums opacity-70">{severityCounts[severity]}</span>
 						</Button>
 					{/each}
-
-					<span class="text-xs text-muted-foreground sm:hidden">
-						{filteredCount}/{issueTotal}
-						{#if filtersActive}
-							· filtered
-						{/if}
-					</span>
 				</div>
 
-				<div class="flex shrink-0 flex-wrap items-center gap-1.5 lg:justify-end">
+				<div class="grid w-full grid-cols-3 {ui.grid} lg:w-80 lg:shrink-0">
 					<Select
 						type="single"
 						value={filters.area}
@@ -173,8 +173,8 @@
 							if (value) filters.area = value;
 						}}
 					>
-						<SelectTrigger class="h-7 w-auto min-w-[7rem] bg-background px-2 text-xs">
-							{filters.area === 'all' ? 'All areas' : filters.area}
+						<SelectTrigger class="h-8 w-full min-w-0 bg-background px-2 text-xs">
+							<span class="truncate">{filters.area === 'all' ? 'All areas' : filters.area}</span>
 						</SelectTrigger>
 						<SelectContent>
 							<SelectItem value="all">All areas</SelectItem>
@@ -191,8 +191,10 @@
 							if (value) filters.status = value as FilterState['status'];
 						}}
 					>
-						<SelectTrigger class="h-7 w-auto min-w-[7rem] bg-background px-2 text-xs">
-							{filters.status === 'all' ? 'All statuses' : STATUS_LABELS[filters.status]}
+						<SelectTrigger class="h-8 w-full min-w-0 bg-background px-2 text-xs">
+							<span class="truncate">
+								{filters.status === 'all' ? 'All statuses' : STATUS_LABELS[filters.status]}
+							</span>
 						</SelectTrigger>
 						<SelectContent>
 							<SelectItem value="all">All statuses</SelectItem>
@@ -209,8 +211,8 @@
 							if (value) filters.sort = value as FilterState['sort'];
 						}}
 					>
-						<SelectTrigger class="h-7 w-auto min-w-[6rem] bg-background px-2 text-xs">
-							{sortLabel}
+						<SelectTrigger class="h-8 w-full min-w-0 bg-background px-2 text-xs">
+							<span class="truncate">{sortLabel}</span>
 						</SelectTrigger>
 						<SelectContent>
 							<SelectItem value="id-asc">ID: Ascending</SelectItem>
@@ -221,6 +223,13 @@
 						</SelectContent>
 					</Select>
 				</div>
+
+				<p class="text-xs text-muted-foreground sm:hidden">
+					{filteredCount}/{issueTotal}
+					{#if filtersActive}
+						· filtered
+					{/if}
+				</p>
 			</div>
 		</CardContent>
 	</Card>

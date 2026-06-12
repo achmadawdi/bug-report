@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { preloadRoute } from '$lib/preload.js';
 	import { page } from '$app/stores';
 	import type { ProjectSummary } from '$lib/server/store.js';
 	import {
@@ -79,6 +80,8 @@
 				size="icon-sm"
 				class="size-7 {isHome ? 'bg-secondary text-foreground' : ''}"
 				aria-label="Project list"
+				onpointerenter={() => preloadRoute('/')}
+				onfocus={() => preloadRoute('/')}
 				onclick={() => goto('/')}
 			>
 				<HomeIcon class="size-4" />
@@ -104,6 +107,8 @@
 					class="group relative flex max-w-[220px] min-w-[120px] cursor-pointer items-center border-r border-border border-b-2 px-3 text-sm transition-colors {isActive
 						? 'border-b-primary text-foreground'
 						: 'border-b-transparent text-muted-foreground hover:text-foreground'}"
+					onpointerenter={() => preloadRoute(`/p/${tab.slug}`)}
+					onfocus={() => preloadRoute(`/p/${tab.slug}`)}
 					onclick={() => selectTab(tab.slug)}
 					onkeydown={(event) => {
 						if (event.key === 'Enter' || event.key === ' ') {

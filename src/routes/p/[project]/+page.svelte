@@ -18,6 +18,13 @@
 	import BugDetailSheet from '$lib/components/dashboard/BugDetailSheet.svelte';
 	import AddBugDialog from '$lib/components/dashboard/AddBugDialog.svelte';
 	import { Card, CardContent } from '$lib/components/ui/card/index.js';
+	import { ui } from '$lib/ui-layout.js';
+	import {
+		isNavigatingToHome,
+		isNavigatingToProject
+	} from '$lib/navigation-loading.js';
+	import DashboardPageSkeleton from '$lib/components/skeletons/DashboardPageSkeleton.svelte';
+	import HomePageSkeleton from '$lib/components/skeletons/HomePageSkeleton.svelte';
 	import SearchXIcon from '@lucide/svelte/icons/search-x';
 
 	let { data, form } = $props();
@@ -37,6 +44,10 @@
 	const nextId = $derived(generateNextBugId(report.issues));
 
 	let urlSyncTimer: ReturnType<typeof setTimeout> | undefined;
+
+	const showHomeSkeleton = $derived(isNavigatingToHome());
+	const showDashboardSkeleton = $derived(isNavigatingToProject());
+	const showLoadingSkeleton = $derived(showHomeSkeleton || showDashboardSkeleton);
 
 	$effect(() => {
 		if (form?.report && selectedIssue) {
@@ -128,14 +139,21 @@
 	<title>{report.report.title} · QA Dashboard</title>
 </svelte:head>
 
-<div class="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-8 md:px-6">
+{#if showLoadingSkeleton}
+	{#if showHomeSkeleton}
+		<HomePageSkeleton />
+	{:else}
+		<DashboardPageSkeleton />
+	{/if}
+{:else}
+<div class="{ui.pageShell} {ui.pageStack}">
 	<ReportHeader report={report.report} />
 	<MetadataGrid report={report.report} />
 
 	<div class="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
 		<Sidebar {report} />
 
-		<main class="space-y-4">
+		<main class="flex flex-col gap-4">
 			<Toolbar
 				bind:filters
 				bind:searchInput
@@ -151,7 +169,7 @@
 
 			{#if filteredIssues.length === 0}
 				<Card class="border-dashed border-border bg-card/50">
-					<CardContent class="flex flex-col items-center gap-3 py-16 text-center">
+					<CardContent class="flex flex-col items-center gap-4 py-12 text-center">
 						<SearchXIcon class="size-10 text-muted-foreground" />
 						<div>
 							<p class="font-semibold">No bugs match your filters</p>
@@ -162,7 +180,7 @@
 					</CardContent>
 				</Card>
 			{:else}
-				<section class="grid gap-3">
+				<section class="grid {ui.grid}">
 					{#each filteredIssues as issue (issue.id)}
 						<BugCard {issue} onclick={() => openIssue(issue)} />
 					{/each}
@@ -171,13 +189,14 @@
 		</main>
 	</div>
 
-	<footer class="border-t border-border pt-6 text-sm text-muted-foreground">
+	<footer class="border-t border-border pt-4 text-sm text-muted-foreground">
 		<p>
 			{report.report.source_file} · {report.summary.total_issues} total issues ·
 			{report.summary.by_severity.Critical} critical · {report.summary.by_status.fixed} fixed
 		</p>
 	</footer>
 </div>
+{/if}
 
 <BugDetailSheet bind:issue={selectedIssue} bind:open={detailOpen} areas={data.areas} />
 <AddBugDialog bind:open={addOpen} areas={data.areas} {nextId} />

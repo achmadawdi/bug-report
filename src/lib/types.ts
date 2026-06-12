@@ -37,6 +37,7 @@ export const reportMetaSchema = z.object({
 	device: z.string(),
 	tester: z.string(),
 	tester_version: z.string(),
+	test_date: z.string().default(''),
 	test_scope: z.string(),
 	version: z.string(),
 	source_file: z.string()

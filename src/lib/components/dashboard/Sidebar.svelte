@@ -4,6 +4,8 @@
 	import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import BreakdownChart from './BreakdownChart.svelte';
+	import { ui } from '$lib/ui-layout.js';
+	import { cn } from '$lib/utils.js';
 	import ShieldIcon from '@lucide/svelte/icons/shield';
 	import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
@@ -11,13 +13,13 @@
 	let { report }: { report: ReportView } = $props();
 </script>
 
-<aside class="space-y-3">
-	<Card size="sm" class="gap-0 border-border bg-card py-0">
+<aside class="space-y-4">
+	<Card size="sm" class={ui.cardPanel}>
 		<details class="group">
 			<summary
 				class="cursor-pointer list-none [&::-webkit-details-marker]:hidden"
 			>
-				<CardHeader class="px-4 py-3">
+				<CardHeader class={ui.cardHeader}>
 					<CardTitle class="flex items-center justify-between gap-2 text-sm font-semibold">
 						<span class="flex items-center gap-2">
 							<ShieldIcon class="size-4 text-primary" />
@@ -29,7 +31,7 @@
 					</CardTitle>
 				</CardHeader>
 			</summary>
-			<CardContent class="space-y-2 px-4 pb-3 pt-0">
+			<CardContent class="space-y-3 {ui.cardContent}">
 				{#each SEVERITIES as severity}
 					<div class="rounded-md border border-border bg-secondary/40 p-3">
 						<div class="mb-1 flex items-center gap-2">
@@ -45,14 +47,14 @@
 		</details>
 	</Card>
 
-	<Card size="sm" class="gap-0 border-border bg-card py-0">
-		<CardHeader class="px-4 py-3">
+	<Card size="sm" class={ui.cardPanel}>
+		<CardHeader class={ui.cardHeader}>
 			<CardTitle class="flex items-center gap-2 text-sm font-semibold">
 				<CircleCheckIcon class="size-4 text-severity-low" />
 				No Issues Recorded
 			</CardTitle>
 		</CardHeader>
-		<CardContent class="flex flex-wrap gap-2 px-4 pb-3 pt-0">
+		<CardContent class={cn(ui.badgeRow, ui.cardContent)}>
 			{#each report.levels_with_no_issues_recorded as level}
 				<Badge variant="outline" class="border-severity-low/30 bg-severity-low/10 text-severity-low">
 					{level}

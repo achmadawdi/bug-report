@@ -2,6 +2,7 @@
 	import type { Issue } from '$lib/types.js';
 	import { STATUS_LABELS } from '$lib/constants.js';
 	import { displayList, displayNumber, displayText, EMPTY_DISPLAY } from '$lib/format.js';
+	import { ui } from '$lib/ui-layout.js';
 
 	let {
 		issue,
@@ -12,17 +13,15 @@
 	} = $props();
 
 	const labelClass = $derived(
-		variant === 'print'
-			? 'text-sm font-medium text-zinc-700'
-			: 'text-xs font-medium uppercase tracking-wide text-muted-foreground'
+		variant === 'print' ? 'text-sm font-medium text-zinc-700' : ui.sectionTitle
 	);
 	const valueClass = $derived(
 		variant === 'print' ? 'text-sm text-zinc-600' : 'text-sm text-foreground'
 	);
-	const rowClass = $derived(variant === 'print' ? 'mt-3' : 'space-y-1');
+	const rowClass = $derived(variant === 'print' ? 'mt-3' : ui.field);
 </script>
 
-<div class={variant === 'print' ? '' : 'grid gap-4 sm:grid-cols-2'}>
+<div class={variant === 'print' ? '' : `grid ${ui.gridLg} sm:grid-cols-2`}>
 	{#if variant === 'print'}
 		<div class="mt-3 grid gap-2 text-sm text-zinc-600 sm:grid-cols-2">
 			<p><strong>Source page:</strong> {displayNumber(issue.source_page)}</p>

@@ -45,8 +45,21 @@ export const SEVERITY_STYLES: Record<
 };
 
 export const STATUS_STYLES: Record<BugStatus, string> = {
-	open: 'border-border bg-secondary text-foreground',
-	in_progress: 'border-primary/30 bg-primary/10 text-primary',
-	fixed: 'border-severity-low/30 bg-severity-low/10 text-severity-low',
-	wont_fix: 'border-muted-foreground/30 bg-muted text-muted-foreground'
+	open: 'border-severity-high/35 bg-severity-high/12 text-severity-high',
+	in_progress: 'border-primary/35 bg-primary/12 text-primary',
+	fixed: 'border-severity-low/35 bg-severity-low/12 text-severity-low',
+	wont_fix: 'border-muted-foreground/35 bg-muted/40 text-muted-foreground'
 };
+
+export const STATUS_DOT_STYLES: Record<BugStatus, string> = {
+	open: 'bg-severity-high',
+	in_progress: 'bg-primary',
+	fixed: 'bg-severity-low',
+	wont_fix: 'bg-muted-foreground'
+};
+
+export const AREA_BADGE_STYLE =
+	'border-primary/35 bg-primary/12 text-primary hover:bg-primary/12';
+
+export const CATEGORY_BADGE_STYLE =
+	'border-chart-4/35 bg-chart-4/12 text-chart-4 hover:bg-chart-4/12';

@@ -4,9 +4,10 @@
     "type": "QA Testing Report",
     "platform": "Minecraft Education Edition",
     "version_tested": "1.21.133",
-    "device": "Desktop",
+    "device": "Windows Desktop",
     "tester": "2 User",
     "tester_version": "Minecraft Education Edition 1.21.133",
+    "test_date": "2026-06-11",
     "test_scope": "Level progression, UI, puzzle logic, combat behavior, multiplayer flow, and session recovery",
     "version": "Pre-Release V1.0.0",
     "source_file": "Gauntlet Minigames - QA Version Pre-Release V1.0.0.pdf"
@@ -35,8 +36,9 @@
         "Level indicator format should stay consistent across all levels."
       ],
       "status": "open",
-      "source_page": 2,
-      "evidence_media": []
+      "evidence_media": [],
+      "suggested_text_or_behavior": [],
+      "source_page": 2
     },
     {
       "id": "BUG-002",

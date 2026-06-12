@@ -7,6 +7,8 @@
 		DialogHeader,
 		DialogTitle
 	} from '$lib/components/ui/dialog/index.js';
+	import { ui } from '$lib/ui-layout.js';
+	import { cn } from '$lib/utils.js';
 
 	let {
 		media = $bindable(null),
@@ -20,14 +22,14 @@
 <Dialog bind:open>
 	<DialogContent class="max-h-[90vh] max-w-4xl overflow-hidden p-0">
 		{#if media}
-			<DialogHeader class="border-b border-border px-6 py-4">
+			<DialogHeader class={cn(ui.overlayHeader)}>
 				<DialogTitle class="capitalize">{media.type} evidence</DialogTitle>
 				{#if media.caption}
 					<DialogDescription>{media.caption}</DialogDescription>
 				{/if}
 			</DialogHeader>
 
-			<div class="flex max-h-[70vh] items-center justify-center bg-black/40 p-4">
+			<div class="flex max-h-[70vh] items-center justify-center bg-black/40 {ui.cardPadding}">
 				{#if media.type === 'image'}
 					<img
 						src={media.src}

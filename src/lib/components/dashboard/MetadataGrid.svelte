@@ -15,9 +15,12 @@
 	} from '$lib/components/ui/dialog/index.js';
 	import { enhance } from '$app/forms';
 	import { toast } from 'svelte-sonner';
+	import { displayDate } from '$lib/format.js';
+	import { ui } from '$lib/ui-layout.js';
 	import Gamepad2Icon from '@lucide/svelte/icons/gamepad-2';
 	import MonitorIcon from '@lucide/svelte/icons/monitor';
 	import UsersIcon from '@lucide/svelte/icons/users';
+	import CalendarIcon from '@lucide/svelte/icons/calendar';
 	import TargetIcon from '@lucide/svelte/icons/target';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 
@@ -33,6 +36,7 @@
 		device: '',
 		tester: '',
 		tester_version: '',
+		test_date: '',
 		test_scope: '',
 		version: '',
 		source_file: ''
@@ -41,6 +45,7 @@
 	const primaryItems = $derived([
 		{ label: 'Platform', value: report.platform, icon: Gamepad2Icon },
 		{ label: 'Version', value: report.version_tested, icon: MonitorIcon },
+		{ label: 'Tested', value: displayDate(report.test_date), icon: CalendarIcon },
 		{ label: 'Tester', value: `${report.tester} · ${report.device}`, icon: UsersIcon }
 	]);
 
@@ -50,49 +55,62 @@
 	}
 </script>
 
-<Card class="border-border bg-card">
-	<CardContent class="space-y-2 p-3">
-		<div class="flex items-start justify-between gap-3">
-			<div class="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm">
-				{#each primaryItems as item, index}
-					{#if index > 0}
-						<span class="hidden h-3.5 w-px bg-border sm:block" aria-hidden="true"></span>
-					{/if}
-					<div class="flex items-center gap-1.5">
-						<item.icon class="size-3.5 shrink-0 text-primary" />
-						<span class="text-muted-foreground">{item.label}</span>
-						<span class="font-medium">{item.value}</span>
+<Card class={ui.cardPanel}>
+	<CardContent class="p-0">
+		<div class="flex items-start justify-between gap-4 {ui.cardPadding}">
+			<div class="grid min-w-0 flex-1 {ui.gridLg} sm:grid-cols-2 xl:grid-cols-4">
+				{#each primaryItems as item}
+					<div class="flex min-w-0 {ui.grid}">
+						<div class={ui.iconTile}>
+							<item.icon class={ui.iconTileIcon} />
+						</div>
+						<div class="min-w-0">
+							<p class={ui.sectionTitle}>{item.label}</p>
+							<p class="mt-1 text-sm leading-snug font-medium">{item.value}</p>
+						</div>
 					</div>
 				{/each}
 			</div>
 
-			<Button type="button" size="sm" variant="ghost" class="shrink-0" onclick={openEdit}>
+			<Button
+				type="button"
+				size="sm"
+				variant="ghost"
+				class="{ui.controlSm} shrink-0 px-3 text-xs"
+				onclick={openEdit}
+			>
 				<PencilIcon class="size-3.5" />
 				Edit
 			</Button>
 		</div>
 
-		<div class="flex items-start gap-1.5 border-t border-border/60 pt-2 text-xs text-muted-foreground">
-			<TargetIcon class="mt-0.5 size-3 shrink-0 text-primary" />
-			<p>
-				<span class="font-medium text-foreground/80">Scope:</span>
-				{report.test_scope}
-			</p>
+		<div class="border-t border-border/60 {ui.cardPadding}">
+			<div class="flex {ui.grid}">
+				<div class={ui.iconTile}>
+					<TargetIcon class={ui.iconTileIcon} />
+				</div>
+				<div class="min-w-0">
+					<p class={ui.sectionTitle}>Scope</p>
+					<p class="mt-1 text-sm leading-relaxed text-foreground/90">{report.test_scope}</p>
+				</div>
+			</div>
 		</div>
 	</CardContent>
 </Card>
 
 <Dialog bind:open={editOpen}>
-	<DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-		<DialogHeader>
-			<DialogTitle>Edit Report Details</DialogTitle>
-			<DialogDescription>Changes are saved to the report JSON file.</DialogDescription>
+	<DialogContent class="flex max-h-[min(90vh,44rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
+		<DialogHeader class={ui.overlayHeader}>
+			<DialogTitle class="text-lg leading-tight">Edit Report Details</DialogTitle>
+			<DialogDescription class="text-sm leading-relaxed">
+				Changes are saved to the report JSON file.
+			</DialogDescription>
 		</DialogHeader>
 
 		<form
 			method="POST"
 			action="?/updateReport"
-			class="space-y-4"
+			class="flex min-h-0 flex-1 flex-col"
 			use:enhance={() => {
 				saving = true;
 				return async ({ result, update }) => {
@@ -114,70 +132,167 @@
 				};
 			}}
 		>
-			<div class="space-y-1.5">
-				<Label for="meta-title">Title</Label>
-				<Input id="meta-title" name="title" bind:value={draft.title} required />
+			<div class={ui.overlayBody}>
+				<section class={ui.section}>
+					<h3 class={ui.sectionTitle}>Report</h3>
+
+					<div class={ui.field}>
+						<Label for="meta-title" class={ui.label}>Title</Label>
+						<Input
+							id="meta-title"
+							name="title"
+							class={ui.input}
+							bind:value={draft.title}
+							required
+						/>
+					</div>
+
+					<div class="grid {ui.grid} sm:grid-cols-2">
+						<div class={ui.field}>
+							<Label for="meta-type" class={ui.label}>
+								Report Type
+							</Label>
+							<Input
+								id="meta-type"
+								name="type"
+								class={ui.input}
+								bind:value={draft.type}
+								required
+							/>
+						</div>
+						<div class={ui.field}>
+							<Label for="meta-version" class={ui.label}>
+								Release Version
+							</Label>
+							<Input
+								id="meta-version"
+								name="version"
+								class={ui.input}
+								bind:value={draft.version}
+								required
+							/>
+						</div>
+					</div>
+				</section>
+
+				<section class={ui.section}>
+					<h3 class={ui.sectionTitle}>Testing Session</h3>
+
+					<div class="grid {ui.grid} sm:grid-cols-2">
+						<div class={ui.field}>
+							<Label for="meta-platform" class={ui.label}>
+								Platform
+							</Label>
+							<Input
+								id="meta-platform"
+								name="platform"
+								class={ui.input}
+								bind:value={draft.platform}
+								required
+							/>
+						</div>
+						<div class={ui.field}>
+							<Label for="meta-version-tested" class={ui.label}>
+								Version Tested
+							</Label>
+							<Input
+								id="meta-version-tested"
+								name="version_tested"
+								class={ui.input}
+								bind:value={draft.version_tested}
+								required
+							/>
+						</div>
+					</div>
+
+					<div class="grid {ui.grid} sm:grid-cols-2">
+						<div class={ui.field}>
+							<Label for="meta-test-date" class={ui.label}>
+								Test Date
+							</Label>
+							<Input
+								id="meta-test-date"
+								name="test_date"
+								type="date"
+								class={ui.input}
+								bind:value={draft.test_date}
+							/>
+						</div>
+						<div class={ui.field}>
+							<Label for="meta-device" class={ui.label}>
+								Device
+							</Label>
+							<Input
+								id="meta-device"
+								name="device"
+								class={ui.input}
+								bind:value={draft.device}
+								required
+							/>
+						</div>
+					</div>
+
+					<div class="grid {ui.grid} sm:grid-cols-2">
+						<div class={ui.field}>
+							<Label for="meta-tester" class={ui.label}>
+								Tester
+							</Label>
+							<Input
+								id="meta-tester"
+								name="tester"
+								class={ui.input}
+								bind:value={draft.tester}
+								required
+							/>
+						</div>
+						<div class={ui.field}>
+							<Label for="meta-tester-version" class={ui.label}>
+								Tester Version
+							</Label>
+							<Input
+								id="meta-tester-version"
+								name="tester_version"
+								class={ui.input}
+								bind:value={draft.tester_version}
+								required
+							/>
+						</div>
+					</div>
+				</section>
+
+				<section class={ui.section}>
+					<h3 class={ui.sectionTitle}>Scope & Source</h3>
+
+					<div class={ui.field}>
+						<Label for="meta-scope" class={ui.label}>
+							Test Scope
+						</Label>
+						<Textarea
+							id="meta-scope"
+							name="test_scope"
+							rows={4}
+							class="min-h-24 resize-y bg-background leading-relaxed"
+							bind:value={draft.test_scope}
+							required
+						/>
+					</div>
+
+					<div class={ui.field}>
+						<Label for="meta-source" class={ui.label}>
+							Source File
+						</Label>
+						<Input
+							id="meta-source"
+							name="source_file"
+							class={ui.input}
+							bind:value={draft.source_file}
+							required
+						/>
+					</div>
+				</section>
 			</div>
 
-			<div class="grid gap-4 sm:grid-cols-2">
-				<div class="space-y-1.5">
-					<Label for="meta-type">Report Type</Label>
-					<Input id="meta-type" name="type" bind:value={draft.type} required />
-				</div>
-				<div class="space-y-1.5">
-					<Label for="meta-version">Release Version</Label>
-					<Input id="meta-version" name="version" bind:value={draft.version} required />
-				</div>
-			</div>
-
-			<div class="grid gap-4 sm:grid-cols-2">
-				<div class="space-y-1.5">
-					<Label for="meta-platform">Platform</Label>
-					<Input id="meta-platform" name="platform" bind:value={draft.platform} required />
-				</div>
-				<div class="space-y-1.5">
-					<Label for="meta-version-tested">Version Tested</Label>
-					<Input
-						id="meta-version-tested"
-						name="version_tested"
-						bind:value={draft.version_tested}
-						required
-					/>
-				</div>
-			</div>
-
-			<div class="grid gap-4 sm:grid-cols-2">
-				<div class="space-y-1.5">
-					<Label for="meta-tester">Tester</Label>
-					<Input id="meta-tester" name="tester" bind:value={draft.tester} required />
-				</div>
-				<div class="space-y-1.5">
-					<Label for="meta-device">Device</Label>
-					<Input id="meta-device" name="device" bind:value={draft.device} required />
-				</div>
-			</div>
-
-			<div class="space-y-1.5">
-				<Label for="meta-tester-version">Tester Version</Label>
-				<Input
-					id="meta-tester-version"
-					name="tester_version"
-					bind:value={draft.tester_version}
-					required
-				/>
-			</div>
-
-			<div class="space-y-1.5">
-				<Label for="meta-scope">Test Scope</Label>
-				<Textarea id="meta-scope" name="test_scope" rows={3} bind:value={draft.test_scope} required />
-			</div>
-
-			<div class="space-y-1.5">
-				<Label for="meta-source">Source File</Label>
-				<Input id="meta-source" name="source_file" bind:value={draft.source_file} required />
-			</div>
-
-			<DialogFooter>
+			<DialogFooter class="m-0 rounded-none {ui.overlayFooter}">
 				<Button type="button" variant="outline" onclick={() => (editOpen = false)}>Cancel</Button>
 				<Button type="submit" disabled={saving}>
 					{saving ? 'Saving...' : 'Save Details'}
