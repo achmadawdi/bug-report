@@ -1,0 +1,532 @@
+{
+  "report": {
+    "title": "Gauntlet Minigames - QA Version Pre-Release V1.0.0",
+    "type": "QA Testing Report",
+    "platform": "Minecraft Education Edition",
+    "version_tested": "1.21.133",
+    "device": "Desktop",
+    "tester": "2 User",
+    "tester_version": "Minecraft Education Edition 1.21.133",
+    "test_scope": "Level progression, UI, puzzle logic, combat behavior, multiplayer flow, and session recovery",
+    "version": "Pre-Release V1.0.0",
+    "source_file": "Gautlet Minigames - QA Version Pre-Release V1.0.0.pdf"
+  },
+  "severity_guide": {
+    "Critical": "Blocks progression, causes softlock, breaks level completion, or prevents the game from continuing properly.",
+    "High": "Major gameplay issue that strongly affects player experience, level logic, combat, or multiplayer stability.",
+    "Medium": "Noticeable issue, but the game can still continue. Usually related to clarity, balance, or player guidance.",
+    "Low": "Minor visual, text, formatting, or polish issue."
+  },
+  "levels_with_no_issues_recorded": [
+    "Level 2",
+    "Level 3"
+  ],
+  "issues": [
+    {
+      "id": "BUG-001",
+      "area": "Level 1",
+      "title": "Level Indicator UI Inconsistency",
+      "severity": "Medium",
+      "category": "UI",
+      "finding": [
+        "The Level 1 indicator does not look fully consistent with the rest of the level indicators."
+      ],
+      "expected_result": [
+        "Level indicator format should stay consistent across all levels."
+      ],
+      "status": "open",
+      "source_page": 2,
+      "evidence_media": [
+        {
+          "type": "image",
+          "src": "/evidence/BUG-001-1781281850087.png"
+        }
+      ]
+    },
+    {
+      "id": "BUG-002",
+      "area": "Level 4",
+      "title": "UI Text Style Inconsistency",
+      "severity": "Low",
+      "category": "UI / Text",
+      "finding": [
+        "Some text in Level 4 uses a different font style compared to the other levels."
+      ],
+      "expected_result": [
+        "Text style, wording, capitalization, and formatting should follow the same standard as other levels."
+      ],
+      "status": "open",
+      "source_page": 2,
+      "evidence_media": []
+    },
+    {
+      "id": "BUG-003",
+      "area": "Level 4",
+      "title": "Button Input Delay",
+      "severity": "Medium",
+      "category": "Input / Interaction",
+      "finding": [
+        "Button input feels delayed in Level 4.",
+        "This may be related to a Minecraft issue."
+      ],
+      "expected_result": [
+        "Button interaction should feel responsive.",
+        "If the delay cannot be fully avoided, the level should give clearer feedback after input."
+      ],
+      "status": "open",
+      "source_page": 2,
+      "evidence_media": []
+    },
+    {
+      "id": "BUG-004",
+      "area": "Level 5",
+      "title": "Player Can Get Stuck in Map Corner",
+      "severity": "High",
+      "category": "Map / Player Movement",
+      "finding": [
+        "Players can get stuck in one of the map corners, on the left side of the spawn gate."
+      ],
+      "expected_result": [
+        "The map should not allow players to get trapped.",
+        "Adjust the area by removing the leaves block."
+      ],
+      "status": "open",
+      "evidence": "Screenshot included in report.",
+      "source_page": 3,
+      "evidence_media": []
+    },
+    {
+      "id": "BUG-005",
+      "area": "Level 6",
+      "title": "Completion Detection Bug",
+      "severity": "Critical",
+      "category": "Completion Logic / Teleport",
+      "finding": [
+        "When the player drops and hits the grass instead of the water, the level can still be marked as completed.",
+        "After that, the player is sent back to the lobby instead of continuing properly."
+      ],
+      "expected_result": [
+        "The level should only complete when the player lands in the correct area.",
+        "If the landing is invalid, completion should not trigger."
+      ],
+      "status": "open",
+      "evidence": "Screenshot included in report.",
+      "source_page": 4,
+      "evidence_media": []
+    },
+    {
+      "id": "BUG-006",
+      "area": "Level 7",
+      "title": "Wrong Door Punishment Adjustment",
+      "severity": "Medium",
+      "category": "Gameplay Logic",
+      "finding": [
+        "Wrong door punishment needs to be adjusted so the penalty feels more balanced."
+      ],
+      "expected_result": [
+        "First wrong door: apply Slowness only.",
+        "Third wrong door: send the player back to the Spawn Level."
+      ],
+      "status": "open",
+      "source_page": 5,
+      "evidence_media": []
+    },
+    {
+      "id": "BUG-007",
+      "area": "Level 7",
+      "title": "Teleport Position After Finish Needs Adjustment",
+      "severity": "Medium",
+      "category": "Teleport / Level Flow",
+      "finding": [
+        "After finishing the level, the player is placed near the spawn door instead of being positioned toward the next door."
+      ],
+      "expected_result": [
+        "After completion, the player should be teleported closer to the next level entrance."
+      ],
+      "status": "open",
+      "evidence": "Screenshot placeholder in report.",
+      "source_page": 5,
+      "evidence_media": []
+    },
+    {
+      "id": "BUG-008",
+      "area": "Level 8",
+      "title": "Clue and Lever Logic Mirroring Position",
+      "severity": "High",
+      "category": "Puzzle Logic",
+      "finding": [
+        "The clue giver and lever setup are not aligned.",
+        "The current logic feels like it is using a mirrored direction, which makes the clue confusing."
+      ],
+      "expected_result": [
+        "The clue and lever setup should match directly, unless the mirror mechanic is intentionally part of the puzzle."
+      ],
+      "status": "open",
+      "evidence": "Screenshot included in report.",
+      "source_page": 6,
+      "evidence_media": []
+    },
+    {
+      "id": "BUG-009",
+      "area": "Level 8",
+      "title": "Lightning Damage Not Working",
+      "severity": "High",
+      "category": "Damage / Hazard",
+      "finding": [
+        "Lightning does not damage the player."
+      ],
+      "expected_result": [
+        "Lightning should damage the player if it is intended to be part of the level hazard."
+      ],
+      "status": "open",
+      "evidence": "Screenshot included in report.",
+      "source_page": 7,
+      "evidence_media": []
+    },
+    {
+      "id": "BUG-010",
+      "area": "Level 9",
+      "title": "Missing Parkour Blocks",
+      "severity": "Critical",
+      "category": "Map Integrity",
+      "finding": [
+        "Parkour blocks are missing in Arena 2.",
+        "Other arenas may need to be checked as well."
+      ],
+      "expected_result": [
+        "All required parkour blocks should be present in every arena."
+      ],
+      "status": "open",
+      "evidence": "Screenshot included in report.",
+      "source_page": 8,
+      "evidence_media": []
+    },
+    {
+      "id": "BUG-011",
+      "area": "Level 9",
+      "title": "Void Fall Does Not Always Reset Player",
+      "severity": "Critical",
+      "category": "Respawn / Fail Condition",
+      "finding": [
+        "Sometimes when the player falls into the void, the player does not die.",
+        "The player is also not always teleported back to the spawn door."
+      ],
+      "expected_result": [
+        "Falling into the void should always trigger death or teleport reset."
+      ],
+      "status": "open",
+      "source_page": 8,
+      "evidence_media": []
+    },
+    {
+      "id": "BUG-012",
+      "area": "Level 10",
+      "title": "Torch Usage Information Needed",
+      "severity": "Medium",
+      "category": "Player Guidance",
+      "finding": [
+        "The game does not clearly tell the player that the torch can be used for lighting."
+      ],
+      "expected_result": [
+        "Add a short hint when the player holds the torch."
+      ],
+      "status": "open",
+      "suggested_text_or_behavior": [
+        "Hold the torch to light your path."
+      ],
+      "source_page": 9,
+      "evidence_media": []
+    },
+    {
+      "id": "BUG-013",
+      "area": "Level 11",
+      "title": "Information to Answer the Clue Is Too Direct",
+      "severity": "Medium",
+      "category": "Puzzle Balance",
+      "finding": [
+        "The current clue for the answering code is too obvious."
+      ],
+      "expected_result": [
+        "Replace the information with a less direct version.",
+        "The information should guide the player without giving the answer too clearly."
+      ],
+      "status": "open",
+      "evidence": "Screenshot included in report.",
+      "source_page": 9,
+      "evidence_media": []
+    },
+    {
+      "id": "BUG-014",
+      "area": "Level 12",
+      "title": "Valve Reset Information Needed",
+      "severity": "Medium",
+      "category": "Puzzle Guidance",
+      "finding": [
+        "Players need clearer information when the valve combination is wrong."
+      ],
+      "expected_result": [
+        "If the combination is wrong, show a short message telling the player to reset all valves to OFF before trying a new combination."
+      ],
+      "status": "open",
+      "source_page": 10,
+      "evidence_media": []
+    },
+    {
+      "id": "BUG-015",
+      "area": "Level 13",
+      "title": "Tools Needed",
+      "severity": "High",
+      "category": "Item / Progression Safety",
+      "finding": [
+        "Players can lose required blocks if misplaced, which may affect progression."
+      ],
+      "expected_result": [
+        "Provide tools to prevent progression issues: Axe and Pickaxe."
+      ],
+      "status": "open",
+      "evidence": "Screenshot included in report.",
+      "source_page": 10,
+      "evidence_media": []
+    },
+    {
+      "id": "BUG-016",
+      "area": "Level 13",
+      "title": "Cannot Build on Required Build Area",
+      "severity": "Critical",
+      "category": "Build Objective",
+      "finding": [
+        "Players cannot place blocks on the intended build object."
+      ],
+      "expected_result": [
+        "Players should be able to build on the correct build object so the objective can be completed normally."
+      ],
+      "status": "open",
+      "source_page": 10,
+      "evidence_media": []
+    },
+    {
+      "id": "BUG-017",
+      "area": "Level 14",
+      "title": "Entity Count Does Not Match Completion State",
+      "severity": "High",
+      "category": "UI / Combat Objective",
+      "finding": [
+        "The exit door opens even though it still shows that one entity remains."
+      ],
+      "expected_result": [
+        "Entity count and exit door logic should be synchronized.",
+        "The exit should only open when the objective state is correct."
+      ],
+      "status": "open",
+      "source_page": 11,
+      "evidence_media": []
+    },
+    {
+      "id": "BUG-018",
+      "area": "Level 14",
+      "title": "Player Cannot Be Damaged by Entity",
+      "severity": "High",
+      "category": "Combat",
+      "finding": [
+        "Entities are not damaging the player."
+      ],
+      "expected_result": [
+        "Entity attacks should damage the player normally."
+      ],
+      "status": "open",
+      "evidence": "Screenshot included in report.",
+      "source_page": 11,
+      "evidence_media": []
+    },
+    {
+      "id": "BUG-019",
+      "area": "Level 15",
+      "title": "Entity Count Does Not Match Completion State",
+      "severity": "High",
+      "category": "UI / Combat Objective",
+      "finding": [
+        "The exit door opens even though it still shows that one entity remains."
+      ],
+      "expected_result": [
+        "Entity count and exit door logic should be synchronized.",
+        "The exit should only open when the objective state is correct."
+      ],
+      "status": "open",
+      "source_page": 12,
+      "evidence_media": []
+    },
+    {
+      "id": "BUG-020",
+      "area": "Level 15",
+      "title": "Lever Challenge Needs Submit Flow",
+      "severity": "Medium",
+      "category": "Puzzle Design",
+      "finding": [
+        "The current lever challenge gives information too quickly after each wrong lever input."
+      ],
+      "expected_result": [
+        "Player sets the lever combination based on the clue first.",
+        "When the player feels the combination is correct, they can press the Submit button.",
+        "If correct, the challenge is completed.",
+        "If wrong, show a wrong indicator and trigger thunder punishment until the player dies."
+      ],
+      "status": "open",
+      "evidence": "Screenshot included in report.",
+      "reason": "This keeps the puzzle clear while preventing instant feedback from giving away the answer too early.",
+      "source_page": 12,
+      "evidence_media": []
+    },
+    {
+      "id": "BUG-021",
+      "area": "Level 15",
+      "title": "Final Boss Encounter Request",
+      "severity": "Medium",
+      "category": "Gameplay Improvement",
+      "finding": [
+        "After all mini quests are completed, the final part of the level needs a stronger ending challenge."
+      ],
+      "expected_result": [
+        "Spawn the final encounter after all mini quests are completed.",
+        "Add 1 Final Boss.",
+        "Add 4 supporting minion entities."
+      ],
+      "status": "open",
+      "source_page": 13,
+      "evidence_media": []
+    },
+    {
+      "id": "BUG-022",
+      "area": "Level 15",
+      "title": "Respawn Location Bug",
+      "severity": "Critical",
+      "category": "Respawn / Fail Condition",
+      "finding": [
+        "When player died, player respawn back to lobby."
+      ],
+      "expected_result": [
+        "Player must respawn at the spawn level 15."
+      ],
+      "status": "open",
+      "evidence": "Screenshot included in report.",
+      "source_page": 13,
+      "evidence_media": []
+    },
+    {
+      "id": "BUG-023",
+      "area": "Global UI",
+      "title": "Action Bar Message After Level Completion",
+      "severity": "Medium",
+      "category": "UI / Player Guidance",
+      "finding": [
+        "After level completion, the next action is not always clear enough for players."
+      ],
+      "expected_result": [
+        "Add a clearer Action Bar message after the objective is completed."
+      ],
+      "status": "open",
+      "evidence": "Screenshot included in report.",
+      "suggested_text_or_behavior": [
+        "Please go to the door right now."
+      ],
+      "source_page": 14,
+      "evidence_media": []
+    },
+    {
+      "id": "BUG-024",
+      "area": "Global UI",
+      "title": "UI Remains After Exiting Game",
+      "severity": "High",
+      "category": "UI Cleanup",
+      "finding": [
+        "UI can remain visible or become stuck after the player exits the game."
+      ],
+      "expected_result": [
+        "All active UI should close properly when the player leaves or exits the game session."
+      ],
+      "status": "open",
+      "source_page": 14,
+      "evidence_media": []
+    },
+    {
+      "id": "BUG-025",
+      "area": "Global UI",
+      "title": "Inconsistent Text Font",
+      "severity": "Low",
+      "category": "UI Text",
+      "finding": [],
+      "expected_result": [
+        "Consistent text font for all UI and texts."
+      ],
+      "status": "open",
+      "evidence": "Screenshot included in report.",
+      "source_page": 15,
+      "evidence_media": []
+    },
+    {
+      "id": "BUG-026",
+      "area": "Multiplayer",
+      "title": "Player Disconnect Can Block Progression",
+      "severity": "Critical",
+      "category": "Multiplayer / Progression",
+      "finding": [
+        "If one player suddenly disconnects, the remaining players may not be able to continue.",
+        "The next-level door can become stuck."
+      ],
+      "expected_result": [
+        "Remaining players should still be able to continue the game even if one player disconnects."
+      ],
+      "status": "open",
+      "source_page": 16,
+      "evidence_media": []
+    },
+    {
+      "id": "BUG-027",
+      "area": "Multiplayer",
+      "title": "Arena Session Needs Recovery Timer",
+      "severity": "Critical",
+      "category": "Multiplayer / Session Recovery",
+      "finding": [
+        "When a player disconnects, the arena session can become broken and cannot continue properly."
+      ],
+      "expected_result": [
+        "Start a 3-minute recovery timer after a player disconnects.",
+        "If no player returns within 3 minutes, terminate the arena session, reset the arena, and make it available for a new session."
+      ],
+      "status": "open",
+      "source_page": 16,
+      "evidence_media": []
+    }
+  ],
+  "summary": {
+    "total_issues": 27,
+    "by_severity": {
+      "Critical": 7,
+      "High": 8,
+      "Medium": 10,
+      "Low": 2
+    },
+    "by_area": {
+      "Level 1": 1,
+      "Level 4": 2,
+      "Level 5": 1,
+      "Level 6": 1,
+      "Level 7": 2,
+      "Level 8": 2,
+      "Level 9": 2,
+      "Level 10": 1,
+      "Level 11": 1,
+      "Level 12": 1,
+      "Level 13": 2,
+      "Level 14": 2,
+      "Level 15": 4,
+      "Global UI": 3,
+      "Multiplayer": 2
+    },
+    "by_status": {
+      "open": 27,
+      "in_progress": 0,
+      "fixed": 0,
+      "wont_fix": 0
+    }
+  }
+}
