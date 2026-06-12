@@ -49,3 +49,44 @@ export function hasEvidenceContent(issue: {
 }): boolean {
 	return Boolean(issue.evidence?.trim()) || (issue.evidence_media?.length ?? 0) > 0;
 }
+
+export type PendingEvidenceFile = {
+	kind: 'file';
+	id: string;
+	file: File;
+	caption?: string;
+	previewUrl: string;
+	type: EvidenceMediaType;
+};
+
+export type PendingEvidenceUrl = {
+	kind: 'url';
+	id: string;
+	url: string;
+	caption?: string;
+	type: EvidenceMediaType;
+};
+
+export type PendingEvidenceItem = PendingEvidenceFile | PendingEvidenceUrl;
+
+export function pendingItemToPreview(item: PendingEvidenceItem): EvidenceMedia {
+	if (item.kind === 'file') {
+		return {
+			type: item.type,
+			src: item.previewUrl,
+			caption: item.caption
+		};
+	}
+
+	return {
+		type: item.type,
+		src: item.url,
+		caption: item.caption
+	};
+}
+
+export function revokePendingPreview(item: PendingEvidenceItem) {
+	if (item.kind === 'file') {
+		URL.revokeObjectURL(item.previewUrl);
+	}
+}

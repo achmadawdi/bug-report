@@ -34,7 +34,7 @@
 
 {#if showBar}
 	<div
-		class="pointer-events-none fixed inset-x-0 top-0 z-50 h-0.5 overflow-hidden transition-opacity duration-200 {fadingOut
+		class="pointer-events-none fixed inset-x-0 top-0 z-50 h-0.5 overflow-hidden print:hidden transition-opacity duration-200 {fadingOut
 			? 'opacity-0'
 			: 'opacity-100'}"
 		role="progressbar"

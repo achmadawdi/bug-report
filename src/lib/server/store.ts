@@ -11,8 +11,16 @@ import {
 	reportDataSchema
 } from '$lib/types.js';
 import { SEVERITIES, STATUSES } from '$lib/constants.js';
+import type { IdConflictStrategy, SlugConflictStrategy } from '$lib/import-report.js';
+import { resolveDuplicateIssueIds } from '$lib/import-report.js';
 import { generateNextBugId } from '$lib/issues.js';
 import { getStorage } from '$lib/server/storage/index.js';
+
+export type ImportProjectOptions = {
+	name?: string;
+	slugConflict: SlugConflictStrategy;
+	idConflict: IdConflictStrategy;
+};
 
 export type ProjectSummary = {
 	slug: string;
@@ -225,6 +233,74 @@ export async function createProject(name: string): Promise<ProjectSummary> {
 		criticalCount: 0,
 		fixedCount: 0
 	};
+}
+
+function toProjectSummary(slug: string, report: ReportView): ProjectSummary {
+	return {
+		slug,
+		title: report.report.title,
+		issueCount: report.issues.length,
+		platform: report.report.platform,
+		version: report.report.version,
+		openCount: report.summary.by_status.open,
+		criticalCount: report.summary.by_severity.Critical,
+		fixedCount: report.summary.by_status.fixed
+	};
+}
+
+export async function importProject(
+	data: ReportData,
+	options: ImportProjectOptions
+): Promise<ProjectSummary> {
+	const storage = getStorage();
+	await storage.ensureReady();
+
+	const title = (options.name ?? data.report.title).trim();
+	if (!title) {
+		throw new Error('Project name is required.');
+	}
+
+	const duplicateIds = new Set(
+		data.issues
+			.map((issue) => issue.id)
+			.filter((id, index, ids) => ids.indexOf(id) !== index)
+	);
+
+	if (duplicateIds.size > 0 && options.idConflict === 'cancel') {
+		throw new Error(`Duplicate issue IDs found: ${[...duplicateIds].join(', ')}`);
+	}
+
+	const issues = resolveDuplicateIssueIds(data.issues.map(normalizeIssue), options.idConflict);
+
+	let slug = slugify(title);
+	const slugExists = await storage.reportExists(slug);
+
+	if (slugExists) {
+		if (options.slugConflict === 'cancel') {
+			throw new Error(`Project "${slug}" already exists.`);
+		}
+
+		if (options.slugConflict === 'suffix') {
+			let suffix = 2;
+			while (await storage.reportExists(`${slug}-${suffix}`)) {
+				suffix += 1;
+			}
+			slug = `${slug}-${suffix}`;
+		}
+	}
+
+	const nextData: ReportData = {
+		...data,
+		report: {
+			...data.report,
+			title
+		},
+		issues
+	};
+
+	await writeReportData(slug, nextData);
+	const report = toReportView(nextData);
+	return toProjectSummary(slug, report);
 }
 
 export async function readReport(project: string): Promise<ReportView> {

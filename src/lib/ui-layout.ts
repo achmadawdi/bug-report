@@ -20,10 +20,10 @@ export const ui = {
 		'shrink-0 flex-row justify-end gap-2 border-t border-border/60 bg-muted/20 px-6 py-4',
 	label: 'text-xs font-medium text-muted-foreground',
 	sectionTitle: 'text-xs font-semibold tracking-wide text-muted-foreground uppercase',
-	input: 'h-9 bg-background',
-	textarea: 'min-h-20 resize-y bg-background leading-relaxed',
-	textareaSm: 'min-h-16 resize-y bg-background leading-relaxed',
-	selectTrigger: 'h-9 w-full bg-background',
+	input: 'h-9 bg-secondary/50',
+	textarea: 'min-h-20 resize-y bg-secondary/50 leading-relaxed',
+	textareaSm: 'min-h-16 resize-y bg-secondary/50 leading-relaxed',
+	selectTrigger: 'h-9 w-full bg-secondary/50',
 	controlSm: 'h-8',
 	badgeRow: 'flex flex-wrap items-center gap-2'
 } as const;

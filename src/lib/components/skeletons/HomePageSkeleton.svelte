@@ -24,8 +24,8 @@
 							<Skeleton class="h-3 w-32" />
 						</div>
 						<div class={ui.badgeRow}>
-							<Skeleton class="h-5 w-20 rounded-full" />
-							<Skeleton class="h-5 w-16 rounded-full" />
+							<Skeleton class="h-5 w-20 rounded-md" />
+							<Skeleton class="h-5 w-16 rounded-md" />
 						</div>
 					</div>
 				</div>

@@ -85,11 +85,11 @@
 			{#each data.issues as issue (issue.id)}
 				<div class="issue-block rounded-lg border border-zinc-200 p-5">
 					<div class="mb-3 flex flex-wrap items-center gap-2 text-xs">
-						<span class="rounded bg-zinc-100 px-2 py-1 font-mono">{issue.id}</span>
-						<span class="rounded bg-zinc-100 px-2 py-1">{issue.severity}</span>
-						<span class="rounded bg-zinc-100 px-2 py-1">{STATUS_LABELS[issue.status]}</span>
-						<span class="rounded bg-zinc-100 px-2 py-1">{issue.area}</span>
-						<span class="rounded bg-zinc-100 px-2 py-1">{issue.category}</span>
+						<span class="rounded-md bg-zinc-100 px-2 py-1 font-mono">{issue.id}</span>
+						<span class="rounded-md bg-zinc-100 px-2 py-1">{issue.severity}</span>
+						<span class="rounded-md bg-zinc-100 px-2 py-1">{STATUS_LABELS[issue.status]}</span>
+						<span class="rounded-md bg-zinc-100 px-2 py-1">{issue.area}</span>
+						<span class="rounded-md bg-zinc-100 px-2 py-1">{issue.category}</span>
 					</div>
 
 					<h3 class="text-lg font-semibold">{displayText(issue.title)}</h3>

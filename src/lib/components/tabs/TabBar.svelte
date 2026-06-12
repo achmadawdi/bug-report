@@ -72,7 +72,7 @@
 	}
 </script>
 
-<header class="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+<header class="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 print:hidden">
 	<div class="flex h-10 items-stretch">
 		<div class="flex shrink-0 items-center gap-1 border-r border-border px-2">
 			<Button

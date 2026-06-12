@@ -89,9 +89,9 @@
 								<Skeleton class="h-3 w-16" />
 								<Skeleton class="h-5 w-3/4 max-w-md" />
 								<div class={ui.badgeRow}>
-									<Skeleton class="h-5 w-16 rounded-full" />
-									<Skeleton class="h-5 w-20 rounded-full" />
-									<Skeleton class="h-5 w-24 rounded-full" />
+									<Skeleton class="h-5 w-16 rounded-md" />
+									<Skeleton class="h-5 w-20 rounded-md" />
+									<Skeleton class="h-5 w-24 rounded-md" />
 								</div>
 								<Skeleton class="h-4 w-full" />
 								<Skeleton class="h-4 w-5/6" />
