@@ -53,12 +53,12 @@ This app uses the [Vercel adapter](https://svelte.dev/docs/kit/adapter-vercel) a
 
 1. Push the repository to GitHub and import it in [Vercel](https://vercel.com/new).
 2. In the Vercel project, open **Storage** → **Blob** → **Connect Store** (or create a new store and connect it to this project).
-3. Confirm `BLOB_READ_WRITE_TOKEN` appears under **Settings** → **Environment Variables** for Production (Vercel adds it when the store is connected).
-4. **Redeploy** after connecting the store so serverless functions receive the token.
+3. Confirm `BLOB_STORE_ID` appears under **Settings** → **Environment Variables** (Vercel adds this when the store is connected; OIDC auth uses `VERCEL_OIDC_TOKEN` at runtime automatically).
+4. **Redeploy** after connecting the store so serverless functions receive the new variables.
 5. On first request, bundled `data/projects/**` seed data is copied into Blob if the store is empty.
 
-Without a connected Blob store, production requests will fail because Vercel's filesystem is read-only.
+Without a connected Blob store, Vercel falls back to **ephemeral `/tmp` storage** (seed data loads on first request, but changes may not persist across cold starts). Connect Blob for durable production data.
 
-**Local development** continues to use the filesystem (`data/projects/` and `static/evidence/`) when `BLOB_READ_WRITE_TOKEN` is not set.
+**Local development** uses the filesystem (`data/projects/` and `static/evidence/`) when `BLOB_READ_WRITE_TOKEN` is not set.
 
 **Evidence uploads** on Vercel are stored in Blob and served via public URLs. Existing `/evidence/...` paths from local dev still work when served from `static/`.

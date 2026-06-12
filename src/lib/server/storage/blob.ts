@@ -1,5 +1,6 @@
-import { del, list, put } from '@vercel/blob';
+import { del, list, put, type PutCommandOptions } from '@vercel/blob';
 import { isLocalEvidencePath } from '$lib/evidence.js';
+import { blobCommandOptions, type BlobAuth } from './blob-auth.js';
 import { createLocalStorage } from './local.js';
 import { getBundledSeedProjects } from './seed.js';
 import type { ProjectStorage } from './types.js';
@@ -19,57 +20,54 @@ function isBlobUrl(src: string): boolean {
 	return src.startsWith('https://') && src.includes('blob.vercel-storage.com');
 }
 
-async function listReportPathnames(): Promise<string[]> {
-	const pathnames: string[] = [];
-	let cursor: string | undefined;
-
-	do {
-		const result = await list({
-			prefix: `${REPORT_PREFIX}/`,
-			cursor,
-			limit: 1000
-		});
-
-		for (const blob of result.blobs) {
-			if (blob.pathname.endsWith('/report.json')) {
-				pathnames.push(blob.pathname);
-			}
-		}
-
-		cursor = result.hasMore ? result.cursor : undefined;
-	} while (cursor);
-
-	return pathnames;
-}
-
-function slugFromReportPathname(pathname: string): string | null {
-	const match = pathname.match(/^projects\/([^/]+)\/report\.json$/);
-	return match?.[1] ?? null;
-}
-
-async function readBlobText(pathname: string): Promise<string | null> {
-	const result = await list({ prefix: pathname, limit: 1 });
-	const blob = result.blobs.find((entry) => entry.pathname === pathname);
-	if (!blob) return null;
-
-	const response = await fetch(blob.url);
-	if (!response.ok) return null;
-	return response.text();
-}
-
-async function seedFromBundledData(storage: ProjectStorage): Promise<void> {
-	const seeds = getBundledSeedProjects();
-	if (seeds.length === 0) return;
-
-	for (const { slug, json } of seeds) {
-		if (await storage.reportExists(slug)) continue;
-		await storage.writeReportJson(slug, json);
-	}
-}
-
-export function createBlobStorage(token: string): ProjectStorage {
+export function createBlobStorage(auth: BlobAuth): ProjectStorage {
 	const localFallback = createLocalStorage();
+	const commandAuth = blobCommandOptions(auth);
 	let seeded = false;
+
+	async function listReportPathnames(): Promise<string[]> {
+		const pathnames: string[] = [];
+		let cursor: string | undefined;
+
+		do {
+			const result = await list({
+				prefix: `${REPORT_PREFIX}/`,
+				cursor,
+				limit: 1000,
+				...commandAuth
+			});
+
+			for (const blob of result.blobs) {
+				if (blob.pathname.endsWith('/report.json')) {
+					pathnames.push(blob.pathname);
+				}
+			}
+
+			cursor = result.hasMore ? result.cursor : undefined;
+		} while (cursor);
+
+		return pathnames;
+	}
+
+	async function readBlobText(pathname: string): Promise<string | null> {
+		const result = await list({ prefix: pathname, limit: 1, ...commandAuth });
+		const blob = result.blobs.find((entry) => entry.pathname === pathname);
+		if (!blob) return null;
+
+		const response = await fetch(blob.url);
+		if (!response.ok) return null;
+		return response.text();
+	}
+
+	async function seedFromBundledData(storage: ProjectStorage): Promise<void> {
+		const seeds = getBundledSeedProjects();
+		if (seeds.length === 0) return;
+
+		for (const { slug, json } of seeds) {
+			if (await storage.reportExists(slug)) continue;
+			await storage.writeReportJson(slug, json);
+		}
+	}
 
 	async function ensureSeeded(storage: ProjectStorage) {
 		if (seeded) return;
@@ -81,6 +79,13 @@ export function createBlobStorage(token: string): ProjectStorage {
 		await seedFromBundledData(storage);
 	}
 
+	const putOptions = {
+		access: 'public',
+		addRandomSuffix: false,
+		allowOverwrite: true,
+		...commandAuth
+	} satisfies Partial<PutCommandOptions>;
+
 	return {
 		async ensureReady() {
 			await ensureSeeded(this);
@@ -90,7 +95,7 @@ export function createBlobStorage(token: string): ProjectStorage {
 			await this.ensureReady();
 			const pathnames = await listReportPathnames();
 			const slugs = pathnames
-				.map(slugFromReportPathname)
+				.map((pathname) => pathname.match(/^projects\/([^/]+)\/report\.json$/)?.[1] ?? null)
 				.filter((slug): slug is string => slug != null);
 			return [...new Set(slugs)].sort();
 		},
@@ -106,11 +111,8 @@ export function createBlobStorage(token: string): ProjectStorage {
 
 		async writeReportJson(project, json) {
 			await put(reportPathname(project), json, {
-				access: 'public',
-				contentType: 'application/json',
-				addRandomSuffix: false,
-				allowOverwrite: true,
-				token
+				...putOptions,
+				contentType: 'application/json'
 			});
 		},
 
@@ -121,13 +123,9 @@ export function createBlobStorage(token: string): ProjectStorage {
 		},
 
 		async saveEvidenceFile(project, filename, data, contentType) {
-			const pathname = evidencePathname(project, filename);
-			const blob = await put(pathname, data, {
-				access: 'public',
-				contentType: contentType || 'application/octet-stream',
-				addRandomSuffix: false,
-				allowOverwrite: true,
-				token
+			const blob = await put(evidencePathname(project, filename), data, {
+				...putOptions,
+				contentType: contentType || 'application/octet-stream'
 			});
 			return blob.url;
 		},
@@ -135,7 +133,7 @@ export function createBlobStorage(token: string): ProjectStorage {
 		async deleteEvidenceBySrc(src, project) {
 			if (isBlobUrl(src)) {
 				try {
-					await del(src, { token });
+					await del(src, commandAuth);
 				} catch {
 					// ignore missing blobs
 				}
