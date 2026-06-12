@@ -72,15 +72,20 @@
 			use:enhance={() => {
 				saving = true;
 				return async ({ result, update }) => {
-					saving = false;
-					await update();
-					if (result.type === 'success') {
-						toast.success('Bug added');
-						open = false;
-					} else if (result.type === 'failure') {
-						toast.error(
-							(result.data as { message?: string })?.message ?? 'Failed to add bug'
-						);
+					try {
+						await update();
+						if (result.type === 'success') {
+							toast.success('Bug added');
+							open = false;
+						} else if (result.type === 'failure') {
+							toast.error(
+								(result.data as { message?: string })?.message ?? 'Failed to add bug'
+							);
+						} else if (result.type === 'error') {
+							toast.error('An unexpected error occurred while adding the bug');
+						}
+					} finally {
+						saving = false;
 					}
 				};
 			}}

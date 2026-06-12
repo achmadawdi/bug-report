@@ -36,10 +36,31 @@
 		previewMedia = media;
 		lightboxOpen = true;
 	}
+
+	function handleCardClick(event: MouseEvent) {
+		const target = event.target as HTMLElement;
+		if (target.closest('form, button, a, input, select, textarea, [data-no-card-click]')) {
+			return;
+		}
+		onclick();
+	}
+
+	function handleCardKeydown(event: KeyboardEvent) {
+		if (event.key === 'Enter' || event.key === ' ') {
+			event.preventDefault();
+			onclick();
+		}
+	}
 </script>
 
 <div class="group w-full">
-	<button type="button" class="w-full text-left" {onclick}>
+	<div
+		class="w-full cursor-pointer text-left"
+		role="button"
+		tabindex="0"
+		onclick={handleCardClick}
+		onkeydown={handleCardKeydown}
+	>
 		<Card
 			class="border-border bg-card transition-colors hover:border-primary/40 hover:bg-card/80"
 		>
@@ -73,14 +94,20 @@
 								action="?/updateStatus"
 								use:enhance={() => {
 									return async ({ result, update }) => {
-										await update();
-										if (result.type === 'success') {
-											toast.success(`${issue.id} status updated`);
-										} else if (result.type === 'failure') {
-											toast.error(
-												(result.data as { message?: string })?.message ??
-													'Failed to update status'
-											);
+										try {
+											await update();
+											if (result.type === 'success') {
+												toast.success(`${issue.id} status updated`);
+											} else if (result.type === 'failure') {
+												toast.error(
+													(result.data as { message?: string })?.message ??
+														'Failed to update status'
+												);
+											} else if (result.type === 'error') {
+												toast.error('An unexpected error occurred while updating status');
+											}
+										} catch {
+											toast.error('An unexpected error occurred while updating status');
 										}
 									};
 								}}
@@ -156,7 +183,7 @@
 				<EvidenceThumbnails {issue} variant="card" onPreview={openPreview} />
 			</div>
 		</Card>
-	</button>
+	</div>
 </div>
 
 <EvidenceLightbox bind:media={previewMedia} bind:open={lightboxOpen} />

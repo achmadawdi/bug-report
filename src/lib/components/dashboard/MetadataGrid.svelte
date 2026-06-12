@@ -96,15 +96,20 @@
 			use:enhance={() => {
 				saving = true;
 				return async ({ result, update }) => {
-					saving = false;
-					await update();
-					if (result.type === 'success') {
-						toast.success('Report details updated');
-						editOpen = false;
-					} else if (result.type === 'failure') {
-						toast.error(
-							(result.data as { message?: string })?.message ?? 'Failed to update report'
-						);
+					try {
+						await update();
+						if (result.type === 'success') {
+							toast.success('Report details updated');
+							editOpen = false;
+						} else if (result.type === 'failure') {
+							toast.error(
+								(result.data as { message?: string })?.message ?? 'Failed to update report'
+							);
+						} else if (result.type === 'error') {
+							toast.error('An unexpected error occurred while updating the report');
+						}
+					} finally {
+						saving = false;
 					}
 				};
 			}}

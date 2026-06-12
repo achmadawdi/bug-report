@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Issue } from '$lib/types.js';
+	import { mergeAreas } from '$lib/areas.js';
 	import { SEVERITIES, STATUSES, STATUS_LABELS } from '$lib/constants.js';
 	import {
 		Sheet,
@@ -37,6 +38,8 @@
 
 	let saving = $state(false);
 
+	const areaOptions = $derived(mergeAreas(areas));
+
 	function listToText(values: string[] | undefined) {
 		return (values ?? []).join('\n');
 	}
@@ -51,30 +54,39 @@
 				<SheetDescription class="font-mono text-xs">{bug.id}</SheetDescription>
 			</SheetHeader>
 
-			<form
-				method="POST"
-				action="?/updateIssue"
-				class="flex min-h-0 flex-1 flex-col"
-				use:enhance={() => {
-					saving = true;
-					return async ({ result, update }) => {
-						saving = false;
-						await update();
-						if (result.type === 'success') {
-							toast.success(`${bug.id} updated`);
-							open = false;
-						} else if (result.type === 'failure') {
-							toast.error(
-								(result.data as { message?: string })?.message ?? 'Failed to update issue'
-							);
-						}
-					};
-				}}
-			>
-				<input type="hidden" name="id" value={bug.id} />
+			<div class="flex min-h-0 flex-1 flex-col">
+				<form
+					id="update-issue-form"
+					method="POST"
+					action="?/updateIssue"
+					class="contents"
+					use:enhance={() => {
+						saving = true;
+						return async ({ result, update }) => {
+							try {
+								await update();
+								if (result.type === 'success') {
+									toast.success(`${bug.id} updated`);
+									open = false;
+								} else if (result.type === 'failure') {
+									toast.error(
+										(result.data as { message?: string })?.message ??
+											'Failed to update issue'
+									);
+								} else if (result.type === 'error') {
+									toast.error('An unexpected error occurred while updating the issue');
+								}
+							} finally {
+								saving = false;
+							}
+						};
+					}}
+				>
+					<input type="hidden" name="id" value={bug.id} />
+				</form>
 
 				<div class="flex-1 space-y-6 overflow-y-auto px-6 py-5">
-					<div class="rounded-lg border border-border bg-secondary/20 p-4">
+					<div class="rounded-lg border border-border p-4">
 						<p class="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
 							Current values
 						</p>
@@ -84,11 +96,23 @@
 					<div class="grid gap-5 sm:grid-cols-2">
 						<div class="space-y-1.5">
 							<Label for="title">Title</Label>
-							<Input id="title" name="title" bind:value={bug.title} required />
+							<Input
+								id="title"
+								name="title"
+								form="update-issue-form"
+								bind:value={bug.title}
+								required
+							/>
 						</div>
 						<div class="space-y-1.5">
 							<Label for="category">Category</Label>
-							<Input id="category" name="category" bind:value={bug.category} required />
+							<Input
+								id="category"
+								name="category"
+								form="update-issue-form"
+								bind:value={bug.category}
+								required
+							/>
 						</div>
 					</div>
 
@@ -106,12 +130,12 @@
 								{bug.area}
 								</SelectTrigger>
 								<SelectContent>
-									{#each areas as area}
+									{#each areaOptions as area}
 										<SelectItem value={area}>{area}</SelectItem>
 									{/each}
 								</SelectContent>
 							</Select>
-							<input type="hidden" name="area" value={bug.area} />
+							<input type="hidden" name="area" form="update-issue-form" value={bug.area} />
 						</div>
 
 						<div class="space-y-1.5">
@@ -132,7 +156,7 @@
 									{/each}
 								</SelectContent>
 							</Select>
-							<input type="hidden" name="status" value={bug.status} />
+							<input type="hidden" name="status" form="update-issue-form" value={bug.status} />
 						</div>
 					</div>
 
@@ -155,7 +179,7 @@
 									{/each}
 								</SelectContent>
 							</Select>
-							<input type="hidden" name="severity" value={bug.severity} />
+							<input type="hidden" name="severity" form="update-issue-form" value={bug.severity} />
 						</div>
 
 						<div class="space-y-1.5">
@@ -163,6 +187,7 @@
 							<Input
 								id="source_page"
 								name="source_page"
+								form="update-issue-form"
 								type="number"
 								placeholder={EMPTY_DISPLAY}
 							value={bug.source_page ?? ''}
@@ -179,6 +204,7 @@
 						<Textarea
 							id="finding"
 							name="finding"
+							form="update-issue-form"
 							rows={4}
 							class="min-h-24 resize-y"
 							placeholder={EMPTY_DISPLAY}
@@ -197,6 +223,7 @@
 						<Textarea
 							id="expected_result"
 							name="expected_result"
+							form="update-issue-form"
 							rows={4}
 							class="min-h-24 resize-y"
 							placeholder={EMPTY_DISPLAY}
@@ -216,6 +243,7 @@
 							<Input
 								id="evidence"
 								name="evidence"
+								form="update-issue-form"
 								placeholder={EMPTY_DISPLAY}
 								bind:value={bug.evidence}
 							/>
@@ -226,19 +254,19 @@
 							<Input
 								id="reason"
 								name="reason"
+								form="update-issue-form"
 								placeholder={EMPTY_DISPLAY}
 								bind:value={bug.reason}
 							/>
 						</div>
 					</div>
 
-					<EvidenceMediaSection bind:issue />
-
 					<div class="space-y-1.5">
 						<Label for="suggested_text_or_behavior">Suggested Text / Behavior</Label>
 						<Textarea
 							id="suggested_text_or_behavior"
 							name="suggested_text_or_behavior"
+							form="update-issue-form"
 							rows={3}
 							class="resize-y"
 							placeholder={EMPTY_DISPLAY}
@@ -258,20 +286,27 @@
 						<Textarea
 							id="notes"
 							name="notes"
+							form="update-issue-form"
 							rows={3}
 							class="resize-y"
 							placeholder={EMPTY_DISPLAY}
 							bind:value={bug.notes}
 						/>
 					</div>
+					<EvidenceMediaSection bind:issue />
 				</div>
 
-				<SheetFooter class="shrink-0 border-t border-border bg-card px-6 py-4">
-					<Button type="submit" class="w-full sm:w-auto" disabled={saving}>
+				<SheetFooter class="shrink-0 border-t border-border px-6 py-4">
+					<Button
+						type="submit"
+						form="update-issue-form"
+						class="w-full sm:w-auto"
+						disabled={saving}
+					>
 						{saving ? 'Saving...' : 'Save Changes'}
 					</Button>
 				</SheetFooter>
-			</form>
+			</div>
 		{/if}
 	</SheetContent>
 </Sheet>

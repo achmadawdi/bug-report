@@ -14,14 +14,14 @@
 	);
 </script>
 
-<Card class="border-border bg-card">
-	<CardHeader class="pb-3">
+<Card size="sm" class="gap-0 border-border bg-card py-0">
+	<CardHeader class="px-4 py-3">
 		<CardTitle class="flex items-center gap-2 text-sm font-semibold">
 			<BarChart3Icon class="size-4 text-primary" />
 			Breakdown
 		</CardTitle>
 	</CardHeader>
-	<CardContent class="space-y-5">
+	<CardContent class="space-y-4 px-4 pb-3 pt-0">
 		<div class="space-y-2">
 			<p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">By Severity</p>
 			<div class="flex h-3 overflow-hidden rounded-full bg-secondary">

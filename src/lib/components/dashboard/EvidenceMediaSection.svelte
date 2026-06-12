@@ -33,7 +33,7 @@
 	}
 </script>
 
-<div class="space-y-4 rounded-lg border border-border bg-secondary/20 p-4">
+<div class="space-y-4 rounded-lg border border-border p-4">
 	<div class="flex items-center justify-between gap-3">
 		<div>
 			<h4 class="text-sm font-semibold">Evidence Media</h4>
@@ -47,7 +47,7 @@
 	{#if (issue.evidence_media?.length ?? 0) > 0}
 		<div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
 			{#each issue.evidence_media ?? [] as media (media.src)}
-				<div class="group relative overflow-hidden rounded-md border border-border bg-card">
+				<div class="group relative overflow-hidden rounded-md border border-border">
 					<button
 						type="button"
 						class="block w-full"
@@ -72,17 +72,23 @@
 						class="absolute top-2 right-2 opacity-0 transition-opacity group-hover:opacity-100"
 						use:enhance={() => {
 							return async ({ result, update }) => {
-								await update();
-								if (result.type === 'success') {
-									const report = (result.data as { report?: { issues: Issue[] } })?.report;
-									const updated = report?.issues.find((item) => item.id === issue.id);
-									if (updated) issue = updated;
-									toast.success('Evidence removed');
-								} else if (result.type === 'failure') {
-									toast.error(
-										(result.data as { message?: string })?.message ??
-											'Failed to remove evidence'
-									);
+								try {
+									await update();
+									if (result.type === 'success') {
+										const report = (result.data as { report?: { issues: Issue[] } })?.report;
+										const updated = report?.issues.find((item) => item.id === issue.id);
+										if (updated) issue = updated;
+										toast.success('Evidence removed');
+									} else if (result.type === 'failure') {
+										toast.error(
+											(result.data as { message?: string })?.message ??
+												'Failed to remove evidence'
+										);
+									} else if (result.type === 'error') {
+										toast.error('An unexpected error occurred while removing evidence');
+									}
+								} catch {
+									toast.error('An unexpected error occurred while removing evidence');
 								}
 							};
 						}}
@@ -110,21 +116,26 @@
 		method="POST"
 		action="?/uploadEvidence"
 		enctype="multipart/form-data"
-		class="grid gap-3 rounded-md border border-border bg-card p-3"
+		class="grid gap-3 rounded-md border border-border/60 p-3"
 		use:enhance={() => {
 			uploading = true;
 			return async ({ result, update }) => {
-				uploading = false;
-				await update();
-				if (result.type === 'success') {
-					const report = (result.data as { report?: { issues: Issue[] } })?.report;
-					const updated = report?.issues.find((item) => item.id === issue.id);
-					if (updated) issue = updated;
-					toast.success('Evidence uploaded');
-				} else if (result.type === 'failure') {
-					toast.error(
-						(result.data as { message?: string })?.message ?? 'Failed to upload evidence'
-					);
+				try {
+					await update();
+					if (result.type === 'success') {
+						const report = (result.data as { report?: { issues: Issue[] } })?.report;
+						const updated = report?.issues.find((item) => item.id === issue.id);
+						if (updated) issue = updated;
+						toast.success('Evidence uploaded');
+					} else if (result.type === 'failure') {
+						toast.error(
+							(result.data as { message?: string })?.message ?? 'Failed to upload evidence'
+						);
+					} else if (result.type === 'error') {
+						toast.error('An unexpected error occurred while uploading evidence');
+					}
+				} finally {
+					uploading = false;
 				}
 			};
 		}}
@@ -147,24 +158,29 @@
 	<form
 		method="POST"
 		action="?/addEvidenceUrl"
-		class="grid gap-3 rounded-md border border-border bg-card p-3"
+		class="grid gap-3 rounded-md border border-border/60 p-3"
 		use:enhance={() => {
 			addingUrl = true;
 			return async ({ result, update }) => {
-				addingUrl = false;
-				await update();
-				if (result.type === 'success') {
-					const report = (result.data as { report?: { issues: Issue[] } })?.report;
-					const updated = report?.issues.find((item) => item.id === issue.id);
-					if (updated) issue = updated;
-					evidenceUrl = '';
-					evidenceCaption = '';
-					urlType = 'auto';
-					toast.success('Evidence link added');
-				} else if (result.type === 'failure') {
-					toast.error(
-						(result.data as { message?: string })?.message ?? 'Failed to add evidence URL'
-					);
+				try {
+					await update();
+					if (result.type === 'success') {
+						const report = (result.data as { report?: { issues: Issue[] } })?.report;
+						const updated = report?.issues.find((item) => item.id === issue.id);
+						if (updated) issue = updated;
+						evidenceUrl = '';
+						evidenceCaption = '';
+						urlType = 'auto';
+						toast.success('Evidence link added');
+					} else if (result.type === 'failure') {
+						toast.error(
+							(result.data as { message?: string })?.message ?? 'Failed to add evidence URL'
+						);
+					} else if (result.type === 'error') {
+						toast.error('An unexpected error occurred while adding the evidence URL');
+					}
+				} finally {
+					addingUrl = false;
 				}
 			};
 		}}

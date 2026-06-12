@@ -1,5 +1,8 @@
 import { SEVERITY_ORDER } from './constants.js';
+import { severitySchema, statusSchema } from './types.js';
 import type { FilterState, Issue, SortOption } from './types.js';
+
+const SORT_OPTIONS: SortOption[] = ['id-asc', 'id-desc', 'severity', 'level', 'status'];
 
 export function getLevelOrder(area: string): number {
 	if (area === 'Global UI') return 1000;
@@ -28,6 +31,14 @@ export function issueSearchText(issue: Issue): string {
 		.toLowerCase();
 }
 
+export function buildIssueSearchTextMap(issues: Issue[]): Map<string, string> {
+	const map = new Map<string, string>();
+	for (const issue of issues) {
+		map.set(issue.id, issueSearchText(issue));
+	}
+	return map;
+}
+
 export function sortIssues(issues: Issue[], sort: SortOption): Issue[] {
 	const sorted = [...issues];
 
@@ -50,8 +61,16 @@ export function sortIssues(issues: Issue[], sort: SortOption): Issue[] {
 	}
 }
 
-export function filterIssues(issues: Issue[], filters: FilterState): Issue[] {
-	const query = filters.search.trim().toLowerCase();
+export function filterIssues(
+	issues: Issue[],
+	filters: FilterState,
+	searchTextById?: Map<string, string>
+): Issue[] {
+	const tokens = filters.search
+		.trim()
+		.toLowerCase()
+		.split(/\s+/)
+		.filter(Boolean);
 
 	return sortIssues(
 		issues.filter((issue) => {
@@ -67,8 +86,11 @@ export function filterIssues(issues: Issue[], filters: FilterState): Issue[] {
 				return false;
 			}
 
-			if (query && !issueSearchText(issue).includes(query)) {
-				return false;
+			if (tokens.length > 0) {
+				const text = searchTextById?.get(issue.id) ?? issueSearchText(issue);
+				if (!tokens.every((token) => text.includes(token))) {
+					return false;
+				}
 			}
 
 			return true;
@@ -77,20 +99,52 @@ export function filterIssues(issues: Issue[], filters: FilterState): Issue[] {
 	);
 }
 
-export function parseFilters(searchParams: URLSearchParams): FilterState {
+export function parseFilters(
+	searchParams: URLSearchParams,
+	validAreas?: string[]
+): FilterState {
+	const severityParam = searchParams.get('severity');
+	const statusParam = searchParams.get('status');
+	const sortParam = searchParams.get('sort');
+	const areaParam = searchParams.get('area');
+
+	const severity =
+		severityParam && severityParam !== 'all' && severitySchema.safeParse(severityParam).success
+			? (severityParam as FilterState['severity'])
+			: 'all';
+
+	const status =
+		statusParam && statusParam !== 'all' && statusSchema.safeParse(statusParam).success
+			? (statusParam as FilterState['status'])
+			: 'all';
+
+	const sort =
+		sortParam && SORT_OPTIONS.includes(sortParam as SortOption)
+			? (sortParam as SortOption)
+			: 'id-asc';
+
+	let area: FilterState['area'] = 'all';
+	if (areaParam && areaParam !== 'all') {
+		area =
+			validAreas && !validAreas.includes(areaParam)
+				? 'all'
+				: areaParam;
+	}
+
 	return {
-		search: searchParams.get('q') ?? '',
-		severity: (searchParams.get('severity') as FilterState['severity']) ?? 'all',
-		area: searchParams.get('area') ?? 'all',
-		status: (searchParams.get('status') as FilterState['status']) ?? 'all',
-		sort: (searchParams.get('sort') as SortOption) ?? 'id-asc'
+		search: (searchParams.get('q') ?? '').trim(),
+		severity,
+		area,
+		status,
+		sort
 	};
 }
 
 export function filtersToSearchParams(filters: FilterState): URLSearchParams {
 	const params = new URLSearchParams();
 
-	if (filters.search) params.set('q', filters.search);
+	const trimmedSearch = filters.search.trim();
+	if (trimmedSearch) params.set('q', trimmedSearch);
 	if (filters.severity !== 'all') params.set('severity', filters.severity);
 	if (filters.area !== 'all') params.set('area', filters.area);
 	if (filters.status !== 'all') params.set('status', filters.status);

@@ -2,8 +2,9 @@
 	import './layout.css';
 	import favicon from '$lib/assets/favicon.svg';
 	import { Toaster } from '$lib/components/ui/sonner/index.js';
+	import TabBar from '$lib/components/tabs/TabBar.svelte';
 
-	let { children } = $props();
+	let { data, children } = $props();
 </script>
 
 <svelte:head>
@@ -17,6 +18,7 @@
 </svelte:head>
 
 <div class="dark min-h-screen bg-background text-foreground">
+	<TabBar projects={data.projects} />
 	{@render children()}
 </div>
 

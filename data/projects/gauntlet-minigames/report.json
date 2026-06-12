@@ -9,7 +9,7 @@
     "tester_version": "Minecraft Education Edition 1.21.133",
     "test_scope": "Level progression, UI, puzzle logic, combat behavior, multiplayer flow, and session recovery",
     "version": "Pre-Release V1.0.0",
-    "source_file": "Gautlet Minigames - QA Version Pre-Release V1.0.0.pdf"
+    "source_file": "Gauntlet Minigames - QA Version Pre-Release V1.0.0.pdf"
   },
   "severity_guide": {
     "Critical": "Blocks progression, causes softlock, breaks level completion, or prevents the game from continuing properly.",
@@ -36,12 +36,7 @@
       ],
       "status": "open",
       "source_page": 2,
-      "evidence_media": [
-        {
-          "type": "image",
-          "src": "/evidence/BUG-001-1781281850087.png"
-        }
-      ]
+      "evidence_media": []
     },
     {
       "id": "BUG-002",
@@ -56,8 +51,8 @@
         "Text style, wording, capitalization, and formatting should follow the same standard as other levels."
       ],
       "status": "open",
-      "source_page": 2,
-      "evidence_media": []
+      "evidence_media": [],
+      "source_page": 2
     },
     {
       "id": "BUG-003",
@@ -74,8 +69,8 @@
         "If the delay cannot be fully avoided, the level should give clearer feedback after input."
       ],
       "status": "open",
-      "source_page": 2,
-      "evidence_media": []
+      "evidence_media": [],
+      "source_page": 2
     },
     {
       "id": "BUG-004",
@@ -92,8 +87,8 @@
       ],
       "status": "open",
       "evidence": "Screenshot included in report.",
-      "source_page": 3,
-      "evidence_media": []
+      "evidence_media": [],
+      "source_page": 3
     },
     {
       "id": "BUG-005",
@@ -111,8 +106,8 @@
       ],
       "status": "open",
       "evidence": "Screenshot included in report.",
-      "source_page": 4,
-      "evidence_media": []
+      "evidence_media": [],
+      "source_page": 4
     },
     {
       "id": "BUG-006",
@@ -128,8 +123,8 @@
         "Third wrong door: send the player back to the Spawn Level."
       ],
       "status": "open",
-      "source_page": 5,
-      "evidence_media": []
+      "evidence_media": [],
+      "source_page": 5
     },
     {
       "id": "BUG-007",
@@ -145,8 +140,8 @@
       ],
       "status": "open",
       "evidence": "Screenshot placeholder in report.",
-      "source_page": 5,
-      "evidence_media": []
+      "evidence_media": [],
+      "source_page": 5
     },
     {
       "id": "BUG-008",
@@ -163,8 +158,8 @@
       ],
       "status": "open",
       "evidence": "Screenshot included in report.",
-      "source_page": 6,
-      "evidence_media": []
+      "evidence_media": [],
+      "source_page": 6
     },
     {
       "id": "BUG-009",
@@ -180,8 +175,8 @@
       ],
       "status": "open",
       "evidence": "Screenshot included in report.",
-      "source_page": 7,
-      "evidence_media": []
+      "evidence_media": [],
+      "source_page": 7
     },
     {
       "id": "BUG-010",
@@ -198,8 +193,8 @@
       ],
       "status": "open",
       "evidence": "Screenshot included in report.",
-      "source_page": 8,
-      "evidence_media": []
+      "evidence_media": [],
+      "source_page": 8
     },
     {
       "id": "BUG-011",
@@ -215,8 +210,8 @@
         "Falling into the void should always trigger death or teleport reset."
       ],
       "status": "open",
-      "source_page": 8,
-      "evidence_media": []
+      "evidence_media": [],
+      "source_page": 8
     },
     {
       "id": "BUG-012",
@@ -231,11 +226,11 @@
         "Add a short hint when the player holds the torch."
       ],
       "status": "open",
+      "evidence_media": [],
       "suggested_text_or_behavior": [
         "Hold the torch to light your path."
       ],
-      "source_page": 9,
-      "evidence_media": []
+      "source_page": 9
     },
     {
       "id": "BUG-013",
@@ -252,8 +247,8 @@
       ],
       "status": "open",
       "evidence": "Screenshot included in report.",
-      "source_page": 9,
-      "evidence_media": []
+      "evidence_media": [],
+      "source_page": 9
     },
     {
       "id": "BUG-014",
@@ -268,8 +263,8 @@
         "If the combination is wrong, show a short message telling the player to reset all valves to OFF before trying a new combination."
       ],
       "status": "open",
-      "source_page": 10,
-      "evidence_media": []
+      "evidence_media": [],
+      "source_page": 10
     },
     {
       "id": "BUG-015",
@@ -285,8 +280,8 @@
       ],
       "status": "open",
       "evidence": "Screenshot included in report.",
-      "source_page": 10,
-      "evidence_media": []
+      "evidence_media": [],
+      "source_page": 10
     },
     {
       "id": "BUG-016",
@@ -301,8 +296,8 @@
         "Players should be able to build on the correct build object so the objective can be completed normally."
       ],
       "status": "open",
-      "source_page": 10,
-      "evidence_media": []
+      "evidence_media": [],
+      "source_page": 10
     },
     {
       "id": "BUG-017",
@@ -318,8 +313,8 @@
         "The exit should only open when the objective state is correct."
       ],
       "status": "open",
-      "source_page": 11,
-      "evidence_media": []
+      "evidence_media": [],
+      "source_page": 11
     },
     {
       "id": "BUG-018",
@@ -335,8 +330,8 @@
       ],
       "status": "open",
       "evidence": "Screenshot included in report.",
-      "source_page": 11,
-      "evidence_media": []
+      "evidence_media": [],
+      "source_page": 11
     },
     {
       "id": "BUG-019",
@@ -352,8 +347,8 @@
         "The exit should only open when the objective state is correct."
       ],
       "status": "open",
-      "source_page": 12,
-      "evidence_media": []
+      "evidence_media": [],
+      "source_page": 12
     },
     {
       "id": "BUG-020",
@@ -372,9 +367,9 @@
       ],
       "status": "open",
       "evidence": "Screenshot included in report.",
+      "evidence_media": [],
       "reason": "This keeps the puzzle clear while preventing instant feedback from giving away the answer too early.",
-      "source_page": 12,
-      "evidence_media": []
+      "source_page": 12
     },
     {
       "id": "BUG-021",
@@ -391,8 +386,8 @@
         "Add 4 supporting minion entities."
       ],
       "status": "open",
-      "source_page": 13,
-      "evidence_media": []
+      "evidence_media": [],
+      "source_page": 13
     },
     {
       "id": "BUG-022",
@@ -408,8 +403,8 @@
       ],
       "status": "open",
       "evidence": "Screenshot included in report.",
-      "source_page": 13,
-      "evidence_media": []
+      "evidence_media": [],
+      "source_page": 13
     },
     {
       "id": "BUG-023",
@@ -425,11 +420,11 @@
       ],
       "status": "open",
       "evidence": "Screenshot included in report.",
+      "evidence_media": [],
       "suggested_text_or_behavior": [
         "Please go to the door right now."
       ],
-      "source_page": 14,
-      "evidence_media": []
+      "source_page": 14
     },
     {
       "id": "BUG-024",
@@ -444,8 +439,8 @@
         "All active UI should close properly when the player leaves or exits the game session."
       ],
       "status": "open",
-      "source_page": 14,
-      "evidence_media": []
+      "evidence_media": [],
+      "source_page": 14
     },
     {
       "id": "BUG-025",
@@ -459,8 +454,8 @@
       ],
       "status": "open",
       "evidence": "Screenshot included in report.",
-      "source_page": 15,
-      "evidence_media": []
+      "evidence_media": [],
+      "source_page": 15
     },
     {
       "id": "BUG-026",
@@ -476,8 +471,8 @@
         "Remaining players should still be able to continue the game even if one player disconnects."
       ],
       "status": "open",
-      "source_page": 16,
-      "evidence_media": []
+      "evidence_media": [],
+      "source_page": 16
     },
     {
       "id": "BUG-027",
@@ -493,8 +488,8 @@
         "If no player returns within 3 minutes, terminate the arena session, reset the arena, and make it available for a new session."
       ],
       "status": "open",
-      "source_page": 16,
-      "evidence_media": []
+      "evidence_media": [],
+      "source_page": 16
     }
   ],
   "summary": {

@@ -11,13 +11,13 @@
 	let { report }: { report: ReportView } = $props();
 </script>
 
-<aside class="space-y-4">
-	<Card class="border-border bg-card">
+<aside class="space-y-3">
+	<Card size="sm" class="gap-0 border-border bg-card py-0">
 		<details class="group">
 			<summary
 				class="cursor-pointer list-none [&::-webkit-details-marker]:hidden"
 			>
-				<CardHeader class="pb-3">
+				<CardHeader class="px-4 py-3">
 					<CardTitle class="flex items-center justify-between gap-2 text-sm font-semibold">
 						<span class="flex items-center gap-2">
 							<ShieldIcon class="size-4 text-primary" />
@@ -29,7 +29,7 @@
 					</CardTitle>
 				</CardHeader>
 			</summary>
-			<CardContent class="space-y-3 pt-0">
+			<CardContent class="space-y-2 px-4 pb-3 pt-0">
 				{#each SEVERITIES as severity}
 					<div class="rounded-md border border-border bg-secondary/40 p-3">
 						<div class="mb-1 flex items-center gap-2">
@@ -45,14 +45,14 @@
 		</details>
 	</Card>
 
-	<Card class="border-border bg-card">
-		<CardHeader class="pb-3">
+	<Card size="sm" class="gap-0 border-border bg-card py-0">
+		<CardHeader class="px-4 py-3">
 			<CardTitle class="flex items-center gap-2 text-sm font-semibold">
 				<CircleCheckIcon class="size-4 text-severity-low" />
 				No Issues Recorded
 			</CardTitle>
 		</CardHeader>
-		<CardContent class="flex flex-wrap gap-2">
+		<CardContent class="flex flex-wrap gap-2 px-4 pb-3 pt-0">
 			{#each report.levels_with_no_issues_recorded as level}
 				<Badge variant="outline" class="border-severity-low/30 bg-severity-low/10 text-severity-low">
 					{level}

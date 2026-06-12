@@ -1,7 +1,7 @@
 import { listProjects } from '$lib/server/store.js';
-import type { PageServerLoad } from './$types.js';
+import type { LayoutServerLoad } from './$types.js';
 
-export const load: PageServerLoad = async () => {
+export const load: LayoutServerLoad = async () => {
 	const projects = await listProjects();
 	return { projects };
 };
