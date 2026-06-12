@@ -1,7 +1,6 @@
-import { del, list, put, type PutCommandOptions } from '@vercel/blob';
+import { del, get, list, put, type PutCommandOptions } from '@vercel/blob';
 import { isLocalEvidencePath } from '$lib/evidence.js';
 import { blobCommandOptions, type BlobAuth } from './blob-auth.js';
-import { createLocalStorage } from './local.js';
 import { getBundledSeedProjects } from './seed.js';
 import type { ProjectStorage } from './types.js';
 
@@ -12,8 +11,12 @@ function reportPathname(project: string) {
 	return `${REPORT_PREFIX}/${project}/report.json`;
 }
 
-function evidencePathname(project: string, filename: string) {
+export function evidenceBlobPathname(project: string, filename: string) {
 	return `${EVIDENCE_PREFIX}/${project}/${filename}`;
+}
+
+function evidencePublicPath(project: string, filename: string) {
+	return `/evidence/${project}/${filename}`;
 }
 
 function isBlobUrl(src: string): boolean {
@@ -21,7 +24,6 @@ function isBlobUrl(src: string): boolean {
 }
 
 export function createBlobStorage(auth: BlobAuth): ProjectStorage {
-	const localFallback = createLocalStorage();
 	const commandAuth = blobCommandOptions(auth);
 	let seeded = false;
 
@@ -50,13 +52,12 @@ export function createBlobStorage(auth: BlobAuth): ProjectStorage {
 	}
 
 	async function readBlobText(pathname: string): Promise<string | null> {
-		const result = await list({ prefix: pathname, limit: 1, ...commandAuth });
-		const blob = result.blobs.find((entry) => entry.pathname === pathname);
-		if (!blob) return null;
-
-		const response = await fetch(blob.url);
-		if (!response.ok) return null;
-		return response.text();
+		const result = await get(pathname, {
+			access: 'private',
+			...commandAuth
+		});
+		if (!result || result.statusCode !== 200 || !result.stream) return null;
+		return new Response(result.stream).text();
 	}
 
 	async function seedFromBundledData(storage: ProjectStorage): Promise<void> {
@@ -80,7 +81,7 @@ export function createBlobStorage(auth: BlobAuth): ProjectStorage {
 	}
 
 	const putOptions = {
-		access: 'public',
+		access: 'private',
 		addRandomSuffix: false,
 		allowOverwrite: true,
 		...commandAuth
@@ -123,11 +124,11 @@ export function createBlobStorage(auth: BlobAuth): ProjectStorage {
 		},
 
 		async saveEvidenceFile(project, filename, data, contentType) {
-			const blob = await put(evidencePathname(project, filename), data, {
+			await put(evidenceBlobPathname(project, filename), data, {
 				...putOptions,
 				contentType: contentType || 'application/octet-stream'
 			});
-			return blob.url;
+			return evidencePublicPath(project, filename);
 		},
 
 		async deleteEvidenceBySrc(src, project) {
@@ -141,7 +142,13 @@ export function createBlobStorage(auth: BlobAuth): ProjectStorage {
 			}
 
 			if (isLocalEvidencePath(src)) {
-				await localFallback.deleteEvidenceBySrc(src, project);
+				const filename = src.split('/').pop();
+				if (!filename) return;
+				try {
+					await del(evidenceBlobPathname(project, filename), commandAuth);
+				} catch {
+					// ignore missing blobs
+				}
 			}
 		}
 	};

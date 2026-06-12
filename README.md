@@ -61,4 +61,4 @@ Without a connected Blob store, Vercel falls back to **ephemeral `/tmp` storage*
 
 **Local development** uses the filesystem (`data/projects/` and `static/evidence/`) when `BLOB_READ_WRITE_TOKEN` is not set.
 
-**Evidence uploads** on Vercel are stored in Blob and served via public URLs. Existing `/evidence/...` paths from local dev still work when served from `static/`.
+**Evidence uploads** on Vercel are stored in Blob (private store) and served through the `/evidence/...` route, which streams files with authenticated `get()` calls. Local dev still serves files from `static/evidence/`.

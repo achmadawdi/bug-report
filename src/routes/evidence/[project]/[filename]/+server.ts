@@ -1,8 +1,12 @@
 import { error } from '@sveltejs/kit';
+import { get } from '@vercel/blob';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { RequestHandler } from './$types.js';
+import { blobCommandOptions, getBlobAuth } from '$lib/server/storage/blob-auth.js';
+import { evidenceBlobPathname } from '$lib/server/storage/blob.js';
 import { getVercelTmpEvidencePath } from '$lib/server/storage/local.js';
+import { useBlobStorage, useEphemeralVercelStorage } from '$lib/server/storage/index.js';
 import { isValidSlug } from '$lib/server/store.js';
 
 const MIME_BY_EXT: Record<string, string> = {
@@ -33,16 +37,36 @@ export const GET: RequestHandler = async ({ params }) => {
 		error(415, 'Unsupported evidence file type');
 	}
 
-	try {
-		const data = await readFile(getVercelTmpEvidencePath(project, filename));
-		return new Response(data, {
-			headers: {
-				'Content-Type': contentType,
-				'Cache-Control': 'public, max-age=3600'
-			}
+	if (useBlobStorage()) {
+		const result = await get(evidenceBlobPathname(project, filename), {
+			access: 'private',
+			...blobCommandOptions(getBlobAuth())
 		});
-	} catch {
-		// fall through to 404
+
+		if (result?.statusCode === 200 && result.stream) {
+			return new Response(result.stream, {
+				headers: {
+					'Content-Type': result.blob.contentType || contentType,
+					'Cache-Control': 'private, max-age=3600'
+				}
+			});
+		}
+
+		error(404, 'Evidence file not found');
+	}
+
+	if (useEphemeralVercelStorage()) {
+		try {
+			const data = await readFile(getVercelTmpEvidencePath(project, filename));
+			return new Response(data, {
+				headers: {
+					'Content-Type': contentType,
+					'Cache-Control': 'public, max-age=3600'
+				}
+			});
+		} catch {
+			// fall through to static/404
+		}
 	}
 
 	error(404, 'Evidence file not found');
