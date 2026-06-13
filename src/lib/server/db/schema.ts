@@ -1,3 +1,4 @@
+export const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS projects (
 	slug TEXT PRIMARY KEY,
 	title TEXT NOT NULL,
@@ -61,3 +62,11 @@ CREATE TABLE IF NOT EXISTS evidence_media (
 );
 
 CREATE INDEX IF NOT EXISTS evidence_media_issue_idx ON evidence_media (project_slug, issue_id);
+`.trim();
+
+export function parseSchemaStatements(schema: string): string[] {
+	return schema
+		.split(';')
+		.map((s) => s.trim())
+		.filter((s) => s.length > 0 && !s.startsWith('--'));
+}
