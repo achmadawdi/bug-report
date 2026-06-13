@@ -43,19 +43,19 @@
 {#if showLoadingSkeleton}
 	<DashboardPageSkeleton />
 {:else}
-	<div class="{ui.pageShellNarrow} min-h-[calc(100vh-2.5rem)] {ui.pageStack}">
-		<div class="{ui.field} text-center">
-			<h1 class="text-2xl font-bold tracking-tight">No report open</h1>
-			<p class="text-sm text-muted-foreground">
+	<div class="{ui.pageShell} min-h-[calc(100vh-2.5rem)] {ui.pageStack}">
+		<div class="text-center py-4 sm:py-6">
+			<h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-foreground/90">No report open</h1>
+			<p class="mt-1.5 text-sm text-muted-foreground">
 				Open a bug report below or pick up where you left off.
 			</p>
 		</div>
 
-		<div class="grid w-full {ui.gridLg} sm:grid-cols-2">
+		<div class="grid w-full {ui.gridLg} md:grid-cols-2 lg:grid-cols-3">
 			{#each data.groups as group (group.slug)}
 				<ProjectGroupCard
 					{group}
-					class="sm:col-span-2"
+					class="md:col-span-2 lg:col-span-3"
 					onOpenReport={openReport}
 					onCreateReport={() => openCreateDialog(group.slug)}
 				/>
@@ -65,9 +65,9 @@
 				<ReportCard {report} onclick={() => openReport(report)} />
 			{/each}
 
-			<button type="button" class="group/new-btn text-left" onclick={() => openCreateDialog()}>
+			<button type="button" class="group/new-btn w-full h-full text-left" onclick={() => openCreateDialog()}>
 				<Card
-					class="flex h-full min-h-[131px] items-center justify-center border-dashed border-border-strong/30 bg-card/25 transition-all duration-200 hover:border-primary/40 hover:bg-card-hover hover:shadow-sm backdrop-blur-md"
+					class="flex h-full items-center justify-center border-dashed border-border-strong/30 bg-card/25 transition-all duration-200 hover:border-primary/40 hover:bg-card-hover hover:shadow-sm backdrop-blur-md"
 				>
 					<CardContent
 						class="flex flex-col items-center {ui.gridLg} {ui.cardPadding} text-muted-foreground"

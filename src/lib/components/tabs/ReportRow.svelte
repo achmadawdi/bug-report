@@ -25,8 +25,8 @@
 
 <button
 	type="button"
-	class="group flex w-full items-center gap-4 px-4 py-3 text-left transition-colors hover:bg-secondary/50 {highlighted
-		? 'bg-primary/5'
+	class="group flex w-full items-center gap-4 px-4 py-3.5 text-left transition-all duration-200 hover:bg-card-hover/55 {highlighted
+		? 'bg-primary-surface/30 border-l-2 border-l-primary pl-[14px]'
 		: ''}"
 	{onclick}
 	onpointerenter={() => preloadRoute(reportPath(report.slug))}
@@ -34,8 +34,8 @@
 >
 	<div class="min-w-0 flex-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
 		<div class="min-w-0 space-y-1">
-			<p class="truncate font-medium">{report.title}</p>
-			<p class="font-mono text-xs text-muted-foreground">{report.slug}</p>
+			<p class="truncate font-semibold text-foreground/90">{report.title}</p>
+			<p class="font-mono text-[10px] text-muted-foreground">{report.slug}</p>
 		</div>
 		<div class="flex flex-wrap items-center gap-2">
 			<p class="text-xs text-muted-foreground sm:hidden">
@@ -51,7 +51,9 @@
 				{report.issueCount}
 			</Badge>
 			{#if report.openCount > 0}
-				<Badge variant="outline">{report.openCount} open</Badge>
+				<Badge variant="outline" class="gap-1 border-severity-high/20 bg-severity-high/6 text-severity-high">
+					{report.openCount} open
+				</Badge>
 			{/if}
 			{#if report.criticalCount > 0}
 				<Badge variant="destructive" class="gap-1">
@@ -65,6 +67,6 @@
 		{displayDate(report.testDate)}
 	</p>
 	<ChevronRightIcon
-		class="size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
+		class="size-4 shrink-0 text-muted-foreground opacity-0 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:text-primary-muted"
 	/>
 </button>
