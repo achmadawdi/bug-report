@@ -16,12 +16,17 @@
 	import HomeIcon from '@lucide/svelte/icons/home';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import XIcon from '@lucide/svelte/icons/x';
+	import SunIcon from '@lucide/svelte/icons/sun';
+	import MoonIcon from '@lucide/svelte/icons/moon';
+	import { toggleMode, mode } from 'mode-watcher';
 
 	let { projects, groups = [] }: { projects: ReportSummary[]; groups?: ProjectGroupSummary[] } =
 		$props();
 
 	let openTabs = $state<OpenTab[]>([]);
 	let openDialog = $state(false);
+
+	const isDarkMode = $derived(mode.current === 'dark');
 
 	const activeSlug = $derived(parseReportSlug($page.url.pathname));
 	const isHome = $derived($page.url.pathname === '/');
@@ -94,6 +99,19 @@
 				onclick={() => (openDialog = true)}
 			>
 				<PlusIcon class="size-4" />
+			</Button>
+			<Button
+				variant="ghost"
+				size="icon-sm"
+				class="size-7"
+				aria-label="Toggle theme"
+				onclick={() => toggleMode()}
+			>
+				{#if isDarkMode}
+					<SunIcon class="size-4 text-amber-500" />
+				{:else}
+					<MoonIcon class="size-4 text-indigo-500" />
+				{/if}
 			</Button>
 		</div>
 

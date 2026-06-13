@@ -4,6 +4,7 @@
 	import { Toaster } from '$lib/components/ui/sonner/index.js';
 	import TabBar from '$lib/components/tabs/TabBar.svelte';
 	import NavigationProgressBar from '$lib/components/NavigationProgressBar.svelte';
+	import { ModeWatcher } from 'mode-watcher';
 
 	let { data, children } = $props();
 </script>
@@ -18,7 +19,9 @@
 	/>
 </svelte:head>
 
-<div class="dark min-h-screen bg-background text-foreground">
+<ModeWatcher />
+
+<div class="min-h-screen bg-background text-foreground transition-colors duration-200">
 	<NavigationProgressBar />
 	<TabBar projects={data.projects} groups={data.groups} />
 	{@render children()}

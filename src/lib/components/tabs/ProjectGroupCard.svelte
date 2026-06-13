@@ -7,6 +7,8 @@
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import { ui } from '$lib/ui-layout.js';
 	import { cn } from '$lib/utils.js';
+	import { goto } from '$app/navigation';
+	import { groupPath } from '$lib/routes.js';
 
 	let {
 		group,
@@ -21,17 +23,21 @@
 	} = $props();
 </script>
 
-<Card class={cn('gap-0 overflow-hidden border-border bg-card/40 backdrop-blur-md py-0 shadow-sm', className)}>
+<Card class={cn('gap-0 overflow-hidden border-border bg-card/25 backdrop-blur-md py-0 shadow-sm', className)}>
 	<CardContent class="p-0">
 		<div
-			class="flex items-center justify-between gap-3 border-b border-border/40 px-3.5 py-2.5"
+			class="flex items-center justify-between gap-3 border-b border-border/40 {ui.cardHeader}"
 		>
-			<div class="flex min-w-0 items-center gap-2">
-				<FolderTreeIcon class="size-3.5 shrink-0 text-primary-muted" />
-				<h3 class="min-w-0 truncate text-sm font-semibold text-foreground/90">
+			<button
+				type="button"
+				class="group/title flex min-w-0 items-center gap-2 text-left hover:cursor-pointer"
+				onclick={() => goto(groupPath(group.slug))}
+			>
+				<FolderTreeIcon class="size-3.5 shrink-0 text-primary-muted group-hover/title:text-primary transition-colors" />
+				<h3 class="min-w-0 truncate text-sm font-semibold text-foreground/90 group-hover/title:text-primary transition-colors">
 					{group.title}
 				</h3>
-			</div>
+			</button>
 
 			{#if onCreateReport}
 				<Button
@@ -48,8 +54,8 @@
 		</div>
 
 		{#if group.reports.length > 0}
-			<div class="p-3.5">
-				<div class="grid {ui.grid} sm:grid-cols-2">
+			<div class="{ui.cardPadding}">
+				<div class="grid {ui.gridLg} md:grid-cols-2 lg:grid-cols-3">
 					{#each group.reports as report (report.slug)}
 						<ReportCard
 							{report}

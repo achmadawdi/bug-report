@@ -6,7 +6,71 @@
 :root {
 	--radius: 0.5rem; /* 8px default radius */
 
-	/* Core layout */
+	/* Core layout (Light Mode) */
+	--background: oklch(0.985 0.002 285);
+	--foreground: oklch(0.145 0.005 285);
+
+	/* Surfaces */
+	--card: oklch(1 0 0);
+	--card-hover: oklch(0.965 0.003 285);
+	--card-active: oklch(0.945 0.004 285);
+	--card-foreground: oklch(0.145 0.005 285);
+
+	--popover: oklch(1 0 0);
+	--popover-foreground: oklch(0.145 0.005 285);
+
+	--surface-subtle: oklch(0.96 0.003 285);
+	--surface-elevated: oklch(0.975 0.003 285);
+
+	/* Borders and inputs */
+	--border: oklch(0.88 0.005 285);
+	--border-subtle: oklch(0.92 0.003 285);
+	--border-strong: oklch(0.75 0.01 285);
+	--input: oklch(0.94 0.004 285);
+
+	/* Primary accent */
+	--primary: oklch(0.56 0.18 275);
+	--primary-muted: oklch(0.75 0.1 275);
+	--primary-surface: oklch(0.95 0.02 275);
+	--primary-foreground: oklch(0.985 0 0);
+	--accent: oklch(0.56 0.18 275);
+	--accent-foreground: oklch(0.985 0 0);
+	--ring: oklch(0.62 0.16 275);
+
+	/* Muted/secondary */
+	--secondary: oklch(0.93 0.004 285);
+	--secondary-foreground: oklch(0.145 0.005 285);
+	--muted: oklch(0.93 0.004 285);
+	--muted-foreground: oklch(0.55 0.01 285);
+
+	/* Status/severity (Light Mode - highly legible) */
+	--destructive: oklch(0.577 0.245 27.325);
+
+	--severity-critical: oklch(0.55 0.2 25.3);
+	--severity-high: oklch(0.6 0.18 55);
+	--severity-medium: oklch(0.65 0.18 84);
+	--severity-low: oklch(0.5 0.15 145);
+
+	/* Charts */
+	--chart-1: oklch(0.577 0.245 27.325);
+	--chart-2: oklch(0.705 0.191 55);
+	--chart-3: oklch(0.828 0.189 84.429);
+	--chart-4: oklch(0.696 0.17 162.48);
+	--chart-5: oklch(0.696 0.17 145);
+
+	/* Sidebar compatibility */
+	--sidebar: oklch(0.97 0.003 285);
+	--sidebar-foreground: oklch(0.145 0.005 285);
+	--sidebar-primary: oklch(0.56 0.18 275);
+	--sidebar-primary-foreground: oklch(0.985 0 0);
+	--sidebar-accent: oklch(0.93 0.004 285);
+	--sidebar-accent-foreground: oklch(0.145 0.005 285);
+	--sidebar-border: oklch(0.88 0.005 285);
+	--sidebar-ring: oklch(0.62 0.16 275);
+}
+
+.dark {
+	/* Core layout (Dark Mode) */
 	--background: oklch(0.145 0.005 285);
 	--foreground: oklch(0.985 0 0);
 
@@ -50,13 +114,6 @@
 	--severity-high: oklch(0.705 0.191 55);
 	--severity-medium: oklch(0.828 0.189 84.429);
 	--severity-low: oklch(0.696 0.17 145);
-
-	/* Charts */
-	--chart-1: oklch(0.577 0.245 27.325);
-	--chart-2: oklch(0.705 0.191 55);
-	--chart-3: oklch(0.828 0.189 84.429);
-	--chart-4: oklch(0.696 0.17 162.48);
-	--chart-5: oklch(0.696 0.17 145);
 
 	/* Sidebar compatibility */
 	--sidebar: oklch(0.19 0.006 285);
