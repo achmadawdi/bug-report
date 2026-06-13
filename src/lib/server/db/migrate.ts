@@ -1,55 +1,130 @@
 import { getSql } from './client.js';
+import {
+	bootstrapLedgerForExistingDatabase,
+	ensureMigrationLedger,
+	runMigrationStep
+} from './migration-ledger.js';
+import { verifyReportSchema } from './schema-verify.js';
 import { parseSchemaStatements, SCHEMA_SQL } from './schema.js';
 
 let migrated = false;
 let migrationPromise: Promise<void> | null = null;
 
 const BACKFILL_TESTING_SESSIONS_SQL = `
-INSERT INTO project_testing_sessions (
-	project_slug,
-	test_date,
-	minecraft_edition,
-	game_version_tested,
-	device_type,
-	tester_count,
-	tester_version,
-	tester_level,
-	test_scope,
-	environment
-)
-SELECT
-	slug,
-	CASE
-		WHEN test_date ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' THEN test_date
-		ELSE '1970-01-01'
-	END,
-	CASE
-		WHEN platform ILIKE '%education%' THEN 'Education'
-		WHEN platform ILIKE '%bedrock%' THEN 'Bedrock'
-		WHEN platform ILIKE '%java%' THEN 'Java'
-		WHEN platform ILIKE '%legacy%' THEN 'Legacy'
-		ELSE 'Education'
-	END,
-	COALESCE(NULLIF(version_tested, ''), ''),
-	CASE
-		WHEN device ILIKE '%windows%' THEN 'Windows'
-		WHEN device ILIKE '%mac%' THEN 'Mac'
-		WHEN device ILIKE '%android%' THEN 'Android'
-		WHEN device ILIKE '%ios%' THEN 'iOS'
-		WHEN device ILIKE '%ipad%' THEN 'iPad'
-		WHEN device ILIKE '%chromebook%' THEN 'Chromebook'
-		ELSE 'Other'
-	END,
-	GREATEST(
-		1,
-		COALESCE(NULLIF(regexp_replace(tester, '[^0-9]', '', 'g'), '')::int, 1)
-	),
-	'',
-	'Mixed',
-	NULLIF(test_scope, ''),
-	NULL
-FROM projects
-ON CONFLICT (project_slug) DO NOTHING
+DO $$
+BEGIN
+	IF to_regclass('public.report_testing_sessions') IS NOT NULL
+		AND to_regclass('public.reports') IS NOT NULL
+		AND EXISTS (
+			SELECT 1
+			FROM information_schema.columns
+			WHERE table_schema = 'public'
+				AND table_name = 'report_testing_sessions'
+				AND column_name = 'report_slug'
+		)
+	THEN
+		INSERT INTO report_testing_sessions (
+			report_slug,
+			test_date,
+			minecraft_edition,
+			game_version_tested,
+			device_type,
+			tester_count,
+			tester_version,
+			tester_level,
+			test_scope,
+			environment
+		)
+		SELECT
+			slug,
+			CASE
+				WHEN test_date ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' THEN test_date
+				ELSE '1970-01-01'
+			END,
+			CASE
+				WHEN platform ILIKE '%education%' THEN 'Education'
+				WHEN platform ILIKE '%bedrock%' THEN 'Bedrock'
+				WHEN platform ILIKE '%java%' THEN 'Java'
+				WHEN platform ILIKE '%legacy%' THEN 'Legacy'
+				ELSE 'Education'
+			END,
+			COALESCE(NULLIF(version_tested, ''), ''),
+			CASE
+				WHEN device ILIKE '%windows%' THEN 'Windows'
+				WHEN device ILIKE '%mac%' THEN 'Mac'
+				WHEN device ILIKE '%android%' THEN 'Android'
+				WHEN device ILIKE '%ios%' THEN 'iOS'
+				WHEN device ILIKE '%ipad%' THEN 'iPad'
+				WHEN device ILIKE '%chromebook%' THEN 'Chromebook'
+				ELSE 'Other'
+			END,
+			GREATEST(
+				1,
+				COALESCE(NULLIF(regexp_replace(tester, '[^0-9]', '', 'g'), '')::int, 1)
+			),
+			'',
+			'Mixed',
+			NULLIF(test_scope, ''),
+			NULL
+		FROM reports
+		ON CONFLICT (report_slug) DO NOTHING;
+	ELSIF to_regclass('public.project_testing_sessions') IS NOT NULL
+		AND to_regclass('public.projects') IS NOT NULL
+		AND EXISTS (
+			SELECT 1
+			FROM information_schema.columns
+			WHERE table_schema = 'public'
+				AND table_name = 'project_testing_sessions'
+				AND column_name = 'project_slug'
+		)
+	THEN
+		INSERT INTO project_testing_sessions (
+			project_slug,
+			test_date,
+			minecraft_edition,
+			game_version_tested,
+			device_type,
+			tester_count,
+			tester_version,
+			tester_level,
+			test_scope,
+			environment
+		)
+		SELECT
+			slug,
+			CASE
+				WHEN test_date ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' THEN test_date
+				ELSE '1970-01-01'
+			END,
+			CASE
+				WHEN platform ILIKE '%education%' THEN 'Education'
+				WHEN platform ILIKE '%bedrock%' THEN 'Bedrock'
+				WHEN platform ILIKE '%java%' THEN 'Java'
+				WHEN platform ILIKE '%legacy%' THEN 'Legacy'
+				ELSE 'Education'
+			END,
+			COALESCE(NULLIF(version_tested, ''), ''),
+			CASE
+				WHEN device ILIKE '%windows%' THEN 'Windows'
+				WHEN device ILIKE '%mac%' THEN 'Mac'
+				WHEN device ILIKE '%android%' THEN 'Android'
+				WHEN device ILIKE '%ios%' THEN 'iOS'
+				WHEN device ILIKE '%ipad%' THEN 'iPad'
+				WHEN device ILIKE '%chromebook%' THEN 'Chromebook'
+				ELSE 'Other'
+			END,
+			GREATEST(
+				1,
+				COALESCE(NULLIF(regexp_replace(tester, '[^0-9]', '', 'g'), '')::int, 1)
+			),
+			'',
+			'Mixed',
+			NULLIF(test_scope, ''),
+			NULL
+		FROM projects
+		ON CONFLICT (project_slug) DO NOTHING;
+	END IF;
+END $$
 `.trim();
 
 const DROP_TEST_DATE_CONSTRAINT_SQL = `
@@ -164,15 +239,28 @@ CREATE TABLE IF NOT EXISTS project_groups (
 const ADD_PROJECTS_GROUP_SLUG_SQL = `
 DO $$
 BEGIN
-	IF NOT EXISTS (
-		SELECT 1
-		FROM information_schema.columns
-		WHERE table_schema = 'public'
-			AND table_name = 'projects'
-			AND column_name = 'group_slug'
-	) THEN
-		ALTER TABLE projects
-			ADD COLUMN group_slug TEXT REFERENCES project_groups (slug) ON DELETE SET NULL;
+	IF to_regclass('public.reports') IS NOT NULL THEN
+		IF NOT EXISTS (
+			SELECT 1
+			FROM information_schema.columns
+			WHERE table_schema = 'public'
+				AND table_name = 'reports'
+				AND column_name = 'group_slug'
+		) THEN
+			ALTER TABLE reports
+				ADD COLUMN group_slug TEXT REFERENCES project_groups (slug) ON DELETE SET NULL;
+		END IF;
+	ELSIF to_regclass('public.projects') IS NOT NULL THEN
+		IF NOT EXISTS (
+			SELECT 1
+			FROM information_schema.columns
+			WHERE table_schema = 'public'
+				AND table_name = 'projects'
+				AND column_name = 'group_slug'
+		) THEN
+			ALTER TABLE projects
+				ADD COLUMN group_slug TEXT REFERENCES project_groups (slug) ON DELETE SET NULL;
+		END IF;
 	END IF;
 END $$
 `.trim();
@@ -180,11 +268,28 @@ END $$
 const ADD_PROJECTS_TYPE_CHECK_SQL = `
 DO $$
 BEGIN
-	IF NOT EXISTS (
-		SELECT 1
-		FROM pg_constraint
-		WHERE conname = 'projects_type_check'
-	) THEN
+	IF to_regclass('public.reports') IS NOT NULL
+		AND NOT EXISTS (
+			SELECT 1
+			FROM pg_constraint
+			WHERE conname = 'reports_type_check'
+		)
+	THEN
+		ALTER TABLE reports
+			ADD CONSTRAINT reports_type_check
+			CHECK (type IN (
+				'QA Testing Report',
+				'Regression Report',
+				'Smoke Test Report',
+				'Bug Report'
+			));
+	ELSIF to_regclass('public.projects') IS NOT NULL
+		AND NOT EXISTS (
+			SELECT 1
+			FROM pg_constraint
+			WHERE conname = 'projects_type_check'
+		)
+	THEN
 		ALTER TABLE projects
 			ADD CONSTRAINT projects_type_check
 			CHECK (type IN (
@@ -200,15 +305,28 @@ END $$
 const ADD_PROJECTS_WORKFLOW_STATUS_SQL = `
 DO $$
 BEGIN
-	IF NOT EXISTS (
-		SELECT 1
-		FROM information_schema.columns
-		WHERE table_schema = 'public'
-			AND table_name = 'projects'
-			AND column_name = 'workflow_status'
-	) THEN
-		ALTER TABLE projects
-			ADD COLUMN workflow_status TEXT NOT NULL DEFAULT 'open';
+	IF to_regclass('public.reports') IS NOT NULL THEN
+		IF NOT EXISTS (
+			SELECT 1
+			FROM information_schema.columns
+			WHERE table_schema = 'public'
+				AND table_name = 'reports'
+				AND column_name = 'workflow_status'
+		) THEN
+			ALTER TABLE reports
+				ADD COLUMN workflow_status TEXT NOT NULL DEFAULT 'open';
+		END IF;
+	ELSIF to_regclass('public.projects') IS NOT NULL THEN
+		IF NOT EXISTS (
+			SELECT 1
+			FROM information_schema.columns
+			WHERE table_schema = 'public'
+				AND table_name = 'projects'
+				AND column_name = 'workflow_status'
+		) THEN
+			ALTER TABLE projects
+				ADD COLUMN workflow_status TEXT NOT NULL DEFAULT 'open';
+		END IF;
 	END IF;
 END $$
 `.trim();
@@ -216,11 +334,23 @@ END $$
 const ADD_PROJECTS_WORKFLOW_STATUS_CHECK_SQL = `
 DO $$
 BEGIN
-	IF NOT EXISTS (
-		SELECT 1
-		FROM pg_constraint
-		WHERE conname = 'projects_workflow_status_check'
-	) THEN
+	IF to_regclass('public.reports') IS NOT NULL
+		AND NOT EXISTS (
+			SELECT 1
+			FROM pg_constraint
+			WHERE conname = 'reports_workflow_status_check'
+		)
+	THEN
+		ALTER TABLE reports
+			ADD CONSTRAINT reports_workflow_status_check
+			CHECK (workflow_status IN ('open', 'resolved', 'postponed'));
+	ELSIF to_regclass('public.projects') IS NOT NULL
+		AND NOT EXISTS (
+			SELECT 1
+			FROM pg_constraint
+			WHERE conname = 'projects_workflow_status_check'
+		)
+	THEN
 		ALTER TABLE projects
 			ADD CONSTRAINT projects_workflow_status_check
 			CHECK (workflow_status IN ('open', 'resolved', 'postponed'));
@@ -233,6 +363,16 @@ DO $$
 BEGIN
 	IF to_regclass('public.projects') IS NOT NULL AND to_regclass('public.reports') IS NULL THEN
 		ALTER TABLE projects RENAME TO reports;
+	END IF;
+
+	IF EXISTS (
+		SELECT 1
+		FROM information_schema.columns
+		WHERE table_schema = 'public'
+			AND table_name = 'project_testing_sessions'
+			AND column_name = 'project_slug'
+	) THEN
+		ALTER TABLE project_testing_sessions RENAME COLUMN project_slug TO report_slug;
 	END IF;
 
 	IF to_regclass('public.project_testing_sessions') IS NOT NULL
@@ -386,22 +526,28 @@ const LEGACY_TESTING_SESSION_MIGRATIONS = [
 	DROP_TESTER_EDUCATION_LEVEL_CONSTRAINT_SQL,
 	DROP_TESTER_LEVEL_CONSTRAINT_SQL,
 	MIGRATE_PRIMARY_TO_INTERNAL_SQL,
-	BACKFILL_TESTING_SESSIONS_SQL,
 	DROP_TEST_DATE_CONSTRAINT_SQL,
 	ADD_TEST_DATE_CONSTRAINT_SQL,
 	ADD_TESTER_LEVEL_CONSTRAINT_SQL
 ] as const;
 
-async function runIfTableExists(
+async function runIfLegacyProjectTestingSessions(
 	sql: ReturnType<typeof getSql>,
-	tableName: string,
 	statement: string
 ): Promise<void> {
 	const rows = (await sql`
-		SELECT to_regclass(${`public.${tableName}`}) IS NOT NULL AS table_exists
-	`) as { table_exists: boolean }[];
+		SELECT
+			to_regclass('public.project_testing_sessions') IS NOT NULL AS table_exists,
+			EXISTS (
+				SELECT 1
+				FROM information_schema.columns
+				WHERE table_schema = 'public'
+					AND table_name = 'project_testing_sessions'
+					AND column_name = 'project_slug'
+			) AS has_project_slug
+	`) as { table_exists: boolean; has_project_slug: boolean }[];
 
-	if (rows[0]?.table_exists) {
+	if (rows[0]?.table_exists && rows[0]?.has_project_slug) {
 		await sql.query(statement, []);
 	}
 }
@@ -409,24 +555,58 @@ async function runIfTableExists(
 async function executeMigrations(): Promise<void> {
 	const sql = getSql();
 
-	await sql.query(CREATE_PROJECT_GROUPS_SQL, []);
-	await sql.query(ADD_PROJECTS_GROUP_SLUG_SQL, []);
-	await sql.query(ADD_PROJECTS_WORKFLOW_STATUS_SQL, []);
-	await sql.query(ADD_PROJECTS_WORKFLOW_STATUS_CHECK_SQL, []);
-	await sql.query(ADD_PROJECTS_TYPE_CHECK_SQL, []);
+	await ensureMigrationLedger(sql);
 
-	for (const statement of LEGACY_TESTING_SESSION_MIGRATIONS) {
-		await runIfTableExists(sql, 'project_testing_sessions', statement);
+	if (await bootstrapLedgerForExistingDatabase(sql)) {
+		await verifyReportSchema(sql);
+		return;
 	}
 
-	// Rename legacy project tables/columns before applying schema indexes on report_slug.
-	await sql.query(RENAME_PROJECTS_TO_REPORTS_SQL, []);
+	await runMigrationStep(sql, '2026-06-13_create_project_groups', async () => {
+		await sql.query(CREATE_PROJECT_GROUPS_SQL, []);
+	});
 
-	for (const statement of parseSchemaStatements(SCHEMA_SQL)) {
-		await sql.query(statement, []);
-	}
+	await runMigrationStep(sql, '2026-06-13_add_report_group_slug', async () => {
+		await sql.query(ADD_PROJECTS_GROUP_SLUG_SQL, []);
+	});
 
-	await sql.query(REPAIR_ISSUES_FOREIGN_KEY_SQL, []);
+	await runMigrationStep(sql, '2026-06-13_add_workflow_status', async () => {
+		await sql.query(ADD_PROJECTS_WORKFLOW_STATUS_SQL, []);
+	});
+
+	await runMigrationStep(sql, '2026-06-13_add_workflow_status_check', async () => {
+		await sql.query(ADD_PROJECTS_WORKFLOW_STATUS_CHECK_SQL, []);
+	});
+
+	await runMigrationStep(sql, '2026-06-13_add_report_type_check', async () => {
+		await sql.query(ADD_PROJECTS_TYPE_CHECK_SQL, []);
+	});
+
+	await runMigrationStep(sql, '2026-06-13_legacy_testing_sessions', async () => {
+		for (const statement of LEGACY_TESTING_SESSION_MIGRATIONS) {
+			await runIfLegacyProjectTestingSessions(sql, statement);
+		}
+	});
+
+	await runMigrationStep(sql, '2026-06-13_rename_projects_to_reports', async () => {
+		await sql.query(RENAME_PROJECTS_TO_REPORTS_SQL, []);
+	});
+
+	await runMigrationStep(sql, '2026-06-13_backfill_testing_sessions', async () => {
+		await sql.query(BACKFILL_TESTING_SESSIONS_SQL, []);
+	});
+
+	await runMigrationStep(sql, '2026-06-13_apply_schema_sql', async () => {
+		for (const statement of parseSchemaStatements(SCHEMA_SQL)) {
+			await sql.query(statement, []);
+		}
+	});
+
+	await runMigrationStep(sql, '2026-06-13_repair_issues_foreign_key', async () => {
+		await sql.query(REPAIR_ISSUES_FOREIGN_KEY_SQL, []);
+	});
+
+	await verifyReportSchema(sql);
 }
 
 export async function runMigrations(): Promise<void> {
@@ -444,4 +624,10 @@ export async function runMigrations(): Promise<void> {
 	}
 
 	return migrationPromise;
+}
+
+/** @internal Used by scripts/verify-migrations.ts to exercise the ledger twice in one process. */
+export function resetMigrationsForTests(): void {
+	migrated = false;
+	migrationPromise = null;
 }

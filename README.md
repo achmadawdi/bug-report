@@ -53,6 +53,7 @@ bun run build      # production build
 bun run preview    # preview production build
 bun run check      # typecheck
 bun run db:migrate # apply PostgreSQL schema
+bun run db:verify  # confirm migrations are idempotent (ledger)
 ```
 
 ## Deploying to Vercel
@@ -61,7 +62,7 @@ This app uses the [Vercel adapter](https://svelte.dev/docs/kit/adapter-vercel). 
 
 | Variable | Description |
 |----------|-------------|
-| `DATABASE_URL` | Neon PostgreSQL connection string |
+| `DATABASE_URL` | Neon PostgreSQL connection string (use **separate** URLs for Preview vs Production) |
 | `R2_ACCOUNT_ID` | Cloudflare account ID |
 | `R2_ACCESS_KEY_ID` | R2 S3 API access key |
 | `R2_SECRET_ACCESS_KEY` | R2 S3 API secret |
@@ -70,7 +71,7 @@ This app uses the [Vercel adapter](https://svelte.dev/docs/kit/adapter-vercel). 
 
 1. Push the repository to GitHub and import it in [Vercel](https://vercel.com/new).
 2. Add all environment variables above.
-3. Run `bun run db:migrate` once against your Neon database (locally or in CI).
+3. Run `bun run db:migrate` and `bun run db:verify` against your Neon database (locally or in CI).
 4. **Redeploy** so serverless functions receive the new variables.
 5. On first request, bundled seed data is imported if the database is empty.
 
