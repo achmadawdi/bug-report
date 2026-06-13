@@ -1,12 +1,7 @@
-import { error } from '@sveltejs/kit';
-import { get } from '@vercel/blob';
-import { readFile } from 'node:fs/promises';
+import { redirect } from '@sveltejs/kit';
 import path from 'node:path';
 import type { RequestHandler } from './$types.js';
-import { blobCommandOptions, getBlobAuth } from '$lib/server/storage/blob-auth.js';
-import { evidenceBlobPathname } from '$lib/server/storage/blob.js';
-import { getVercelTmpEvidencePath } from '$lib/server/storage/local.js';
-import { useBlobStorage, useEphemeralVercelStorage } from '$lib/server/storage/index.js';
+import { getPublicEvidenceUrl } from '$lib/server/storage/r2.js';
 import { isValidSlug } from '$lib/server/store.js';
 
 const MIME_BY_EXT: Record<string, string> = {
@@ -28,46 +23,14 @@ export const GET: RequestHandler = async ({ params }) => {
 	const { project, filename } = params;
 
 	if (!isValidSlug(project) || !filename || filename.includes('..') || filename.includes('/')) {
-		error(400, 'Invalid evidence path');
+		return new Response('Invalid evidence path', { status: 400 });
 	}
 
 	const ext = path.extname(filename).toLowerCase();
-	const contentType = MIME_BY_EXT[ext];
-	if (!contentType) {
-		error(415, 'Unsupported evidence file type');
+	if (!MIME_BY_EXT[ext]) {
+		return new Response('Unsupported evidence file type', { status: 415 });
 	}
 
-	if (useBlobStorage()) {
-		const result = await get(evidenceBlobPathname(project, filename), {
-			access: 'private',
-			...blobCommandOptions(getBlobAuth())
-		});
-
-		if (result?.statusCode === 200 && result.stream) {
-			return new Response(result.stream, {
-				headers: {
-					'Content-Type': result.blob.contentType || contentType,
-					'Cache-Control': 'private, max-age=3600'
-				}
-			});
-		}
-
-		error(404, 'Evidence file not found');
-	}
-
-	if (useEphemeralVercelStorage()) {
-		try {
-			const data = await readFile(getVercelTmpEvidencePath(project, filename));
-			return new Response(data, {
-				headers: {
-					'Content-Type': contentType,
-					'Cache-Control': 'public, max-age=3600'
-				}
-			});
-		} catch {
-			// fall through to static/404
-		}
-	}
-
-	error(404, 'Evidence file not found');
+	const url = getPublicEvidenceUrl(project, filename);
+	redirect(302, url);
 };

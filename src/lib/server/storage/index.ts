@@ -1,39 +1,24 @@
-import { env } from '$env/dynamic/private';
-import { canUseBlobStorage, getBlobAuth } from './blob-auth.js';
-import { createBlobStorage } from './blob.js';
-import { createLocalStorage } from './local.js';
-import type { ProjectStorage } from './types.js';
+export {
+	ensureReady as ensureDbReady,
+	getReport,
+	listProjectSlugs,
+	reportExists,
+	saveReport,
+	updateIssueStatus
+} from '$lib/server/db/repository.js';
 
-let storage: ProjectStorage | undefined;
+import { canUseR2Storage as checkR2Storage } from './r2.js';
 
-function isVercelRuntime(): boolean {
-	return env.VERCEL === '1' || Boolean(env.VERCEL_ENV);
+export {
+	deleteEvidenceBySrc,
+	getPublicEvidenceUrl,
+	saveEvidenceFile
+} from './r2.js';
+
+export function canUseR2Storage(): boolean {
+	return checkR2Storage();
 }
 
-export function getStorage(): ProjectStorage {
-	if (storage) return storage;
-
-	if (canUseBlobStorage()) {
-		storage = createBlobStorage(getBlobAuth());
-	} else if (isVercelRuntime()) {
-		// Writable but ephemeral; connect a Blob store for durable production data.
-		storage = createLocalStorage({
-			projectsDir: '/tmp/bug-report/data/projects',
-			evidenceRoot: '/tmp/bug-report/static/evidence',
-			seedFromBundled: true,
-			runLegacyMigration: false
-		});
-	} else {
-		storage = createLocalStorage();
-	}
-
-	return storage;
-}
-
-export function useBlobStorage(): boolean {
-	return canUseBlobStorage();
-}
-
-export function useEphemeralVercelStorage(): boolean {
-	return isVercelRuntime() && !canUseBlobStorage();
+export function useR2Storage(): boolean {
+	return checkR2Storage();
 }

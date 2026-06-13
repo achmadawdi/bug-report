@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { afterNavigate, replaceState } from '$app/navigation';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import type { Issue, ReportView } from '$lib/types.js';
 	import {
 		buildIssueSearchTextMap,
@@ -26,6 +26,7 @@
 	import DashboardPageSkeleton from '$lib/components/skeletons/DashboardPageSkeleton.svelte';
 	import HomePageSkeleton from '$lib/components/skeletons/HomePageSkeleton.svelte';
 	import SearchXIcon from '@lucide/svelte/icons/search-x';
+	import { toast } from 'svelte-sonner';
 
 	let { data, form } = $props();
 
@@ -50,12 +51,14 @@
 	const showLoadingSkeleton = $derived(showHomeSkeleton || showDashboardSkeleton);
 
 	$effect(() => {
-		if (form?.report && selectedIssue) {
-			const updated = (form.report as ReportView).issues.find(
-				(issue) => issue.id === selectedIssue?.id
-			);
+		const reportFromForm = form?.report as ReportView | undefined;
+		if (!reportFromForm) return;
+
+		untrack(() => {
+			if (!selectedIssue) return;
+			const updated = reportFromForm.issues.find((issue) => issue.id === selectedIssue!.id);
 			if (updated) selectedIssue = structuredClone(updated);
-		}
+		});
 	});
 
 	$effect(() => {
@@ -103,6 +106,7 @@
 	});
 
 	function openIssue(issue: Issue) {
+		toast.dismiss();
 		selectedIssue = structuredClone(issue);
 		detailOpen = true;
 	}

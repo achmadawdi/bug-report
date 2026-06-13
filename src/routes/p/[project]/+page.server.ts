@@ -7,6 +7,7 @@ import {
 	removeEvidenceMedia,
 	saveEvidenceFile,
 	updateIssue,
+	updateIssueStatus,
 	updateReport
 } from '$lib/server/store.js';
 import { mergeAreas } from '$lib/areas.js';
@@ -138,7 +139,7 @@ export const actions: Actions = {
 		}
 
 		try {
-			const report = await updateIssue(params.project, id, { status: status.data });
+			const report = await updateIssueStatus(params.project, id, status.data);
 			return { success: true, message: `${id} marked ${status.data}.`, report };
 		} catch (err) {
 			return fail(500, {

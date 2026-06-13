@@ -9,7 +9,8 @@
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"db:migrate": "bun run scripts/migrate.ts"
 	},
 	"devDependencies": {
 		"@internationalized/date": "^3.12.0",
@@ -19,6 +20,7 @@
 		"@sveltejs/vite-plugin-svelte": "^7.1.2",
 		"@tailwindcss/vite": "^4.3.0",
 		"@types/node": "^25.9.3",
+		"drizzle-kit": "^0.31.10",
 		"svelte": "^5.56.1",
 		"svelte-check": "^4.6.0",
 		"tailwindcss": "^4.3.0",
@@ -26,10 +28,12 @@
 		"vite": "^8.0.16"
 	},
 	"dependencies": {
-		"@vercel/blob": "^2.3.1",
+		"@aws-sdk/client-s3": "^3.1068.0",
 		"@lucide/svelte": "^1.18.0",
+		"@neondatabase/serverless": "^1.1.0",
 		"bits-ui": "^2.18.1",
 		"clsx": "^2.1.1",
+		"drizzle-orm": "^0.45.2",
 		"mode-watcher": "^1.1.0",
 		"svelte-sonner": "^1.1.1",
 		"tailwind-merge": "^3.6.0",

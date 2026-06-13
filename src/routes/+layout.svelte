@@ -24,4 +24,4 @@
 	{@render children()}
 </div>
 
-<Toaster richColors closeButton position="top-right" />
+<Toaster richColors closeButton position="bottom-left" class="z-[100]" />

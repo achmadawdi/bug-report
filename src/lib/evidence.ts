@@ -39,6 +39,39 @@ export function isLocalEvidencePath(src: string): boolean {
 	return src.startsWith('/evidence/');
 }
 
+/** App-relative or R2 public URL for uploaded evidence. */
+export function isAppEvidencePath(src: string): boolean {
+	if (isLocalEvidencePath(src)) return true;
+
+	try {
+		const url = new URL(src);
+		return url.pathname.includes('/evidence/');
+	} catch {
+		return false;
+	}
+}
+
+export function parseEvidenceKey(src: string, project: string): string | null {
+	if (isLocalEvidencePath(src)) {
+		const relative = src.replace(/^\/evidence\//, '');
+		if (!relative || relative.includes('..')) return null;
+		return `evidence/${relative}`;
+	}
+
+	try {
+		const url = new URL(src);
+		const marker = '/evidence/';
+		const index = url.pathname.indexOf(marker);
+		if (index === -1) return null;
+		const relative = url.pathname.slice(index + marker.length);
+		if (!relative || relative.includes('..')) return null;
+		if (!relative.startsWith(`${project}/`)) return null;
+		return `evidence/${relative}`;
+	} catch {
+		return null;
+	}
+}
+
 export function getEvidencePreviewItems(media: EvidenceMedia[] | undefined, limit = 3): EvidenceMedia[] {
 	return (media ?? []).slice(0, limit);
 }

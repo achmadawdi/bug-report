@@ -14,7 +14,16 @@ import { SEVERITIES, STATUSES } from '$lib/constants.js';
 import type { IdConflictStrategy, SlugConflictStrategy } from '$lib/import-report.js';
 import { resolveDuplicateIssueIds } from '$lib/import-report.js';
 import { generateNextBugId } from '$lib/issues.js';
-import { getStorage } from '$lib/server/storage/index.js';
+import {
+	ensureDbReady,
+	getReport as getReportData,
+	listProjectSlugs,
+	reportExists,
+	saveReport,
+	updateIssueStatus as updateIssueStatusDb,
+	saveEvidenceFile as saveEvidenceToR2,
+	deleteEvidenceBySrc
+} from '$lib/server/storage/index.js';
 
 export type ImportProjectOptions = {
 	name?: string;
@@ -126,7 +135,6 @@ export function slugify(name: string): string {
 
 async function writeReportData(project: string, data: ReportData): Promise<void> {
 	validateSlug(project);
-	const storage = getStorage();
 
 	const normalized: ReportData = {
 		...data,
@@ -134,10 +142,7 @@ async function writeReportData(project: string, data: ReportData): Promise<void>
 		summary: deriveSummary(data.issues.map(normalizeIssue))
 	};
 
-	await storage.writeReportJson(
-		project,
-		`${JSON.stringify(normalized, null, 2)}\n`
-	);
+	await saveReport(project, normalized);
 }
 
 function createEmptyReport(title: string): ReportData {
@@ -164,16 +169,15 @@ function createEmptyReport(title: string): ReportData {
 }
 
 export async function ensureProjectsReady(): Promise<void> {
-	await getStorage().ensureReady();
+	await ensureDbReady();
 }
 
 export async function listProjects(): Promise<ProjectSummary[]> {
-	const storage = getStorage();
-	await storage.ensureReady();
+	await ensureDbReady();
 
 	const projects: ProjectSummary[] = [];
 
-	for (const slug of await storage.listProjectSlugs()) {
+	for (const slug of await listProjectSlugs()) {
 		if (!isValidSlug(slug)) continue;
 
 		try {
@@ -189,7 +193,7 @@ export async function listProjects(): Promise<ProjectSummary[]> {
 				fixedCount: report.summary.by_status.fixed
 			});
 		} catch {
-			// skip invalid project folders
+			// skip invalid projects
 		}
 	}
 
@@ -198,12 +202,11 @@ export async function listProjects(): Promise<ProjectSummary[]> {
 
 export async function projectExists(project: string): Promise<boolean> {
 	if (!isValidSlug(project)) return false;
-	return getStorage().reportExists(project);
+	return reportExists(project);
 }
 
 export async function createProject(name: string): Promise<ProjectSummary> {
-	const storage = getStorage();
-	await storage.ensureReady();
+	await ensureDbReady();
 
 	const title = name.trim();
 	if (!title) {
@@ -212,9 +215,9 @@ export async function createProject(name: string): Promise<ProjectSummary> {
 
 	let slug = slugify(title);
 
-	if (await storage.reportExists(slug)) {
+	if (await reportExists(slug)) {
 		let suffix = 2;
-		while (await storage.reportExists(`${slug}-${suffix}`)) {
+		while (await reportExists(`${slug}-${suffix}`)) {
 			suffix += 1;
 		}
 		slug = `${slug}-${suffix}`;
@@ -252,8 +255,7 @@ export async function importProject(
 	data: ReportData,
 	options: ImportProjectOptions
 ): Promise<ProjectSummary> {
-	const storage = getStorage();
-	await storage.ensureReady();
+	await ensureDbReady();
 
 	const title = (options.name ?? data.report.title).trim();
 	if (!title) {
@@ -273,7 +275,7 @@ export async function importProject(
 	const issues = resolveDuplicateIssueIds(data.issues.map(normalizeIssue), options.idConflict);
 
 	let slug = slugify(title);
-	const slugExists = await storage.reportExists(slug);
+	const slugExists = await reportExists(slug);
 
 	if (slugExists) {
 		if (options.slugConflict === 'cancel') {
@@ -282,7 +284,7 @@ export async function importProject(
 
 		if (options.slugConflict === 'suffix') {
 			let suffix = 2;
-			while (await storage.reportExists(`${slug}-${suffix}`)) {
+			while (await reportExists(`${slug}-${suffix}`)) {
 				suffix += 1;
 			}
 			slug = `${slug}-${suffix}`;
@@ -305,12 +307,22 @@ export async function importProject(
 
 export async function readReport(project: string): Promise<ReportView> {
 	validateSlug(project);
-	const storage = getStorage();
-	await storage.ensureReady();
+	await ensureDbReady();
 
-	const raw = await storage.readReportJson(project);
-	const parsed = reportDataSchema.parse(JSON.parse(raw));
+	const parsed = await getReportData(project);
 	return toReportView(parsed);
+}
+
+export async function updateIssueStatus(
+	project: string,
+	id: string,
+	status: BugStatus
+): Promise<ReportView> {
+	return enqueueProjectWrite(project, async () => {
+		validateSlug(project);
+		await updateIssueStatusDb(project, id, status);
+		return readReport(project);
+	});
 }
 
 export async function updateIssue(
@@ -440,7 +452,7 @@ export async function removeEvidenceMedia(
 			throw new Error(`Issue ${id} not found`);
 		}
 
-		await getStorage().deleteEvidenceBySrc(src, project);
+		await deleteEvidenceBySrc(src, project);
 
 		const nextData: ReportData = {
 			report: current.report,
@@ -463,11 +475,10 @@ export async function removeEvidenceMedia(
 
 export async function saveEvidenceFile(project: string, id: string, file: File): Promise<string> {
 	validateSlug(project);
-	const storage = getStorage();
 
 	const extension = path.extname(file.name) || '.bin';
 	const filename = `${id}-${Date.now()}${extension}`;
 	const buffer = Buffer.from(await file.arrayBuffer());
 
-	return storage.saveEvidenceFile(project, filename, buffer, file.type || undefined);
+	return saveEvidenceToR2(project, filename, buffer, file.type || undefined);
 }

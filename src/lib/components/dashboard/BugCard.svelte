@@ -22,10 +22,11 @@
 	} from '$lib/components/ui/dropdown-menu/index.js';
 	import EvidenceThumbnails from './EvidenceThumbnails.svelte';
 	import EvidenceLightbox from './EvidenceLightbox.svelte';
-	import { enhance } from '$app/forms';
+	import { applyAction, enhance } from '$app/forms';
 	import { toast } from 'svelte-sonner';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
+	import Loader2Icon from '@lucide/svelte/icons/loader-2';
 	import { ui } from '$lib/ui-layout.js';
 
 	let {
@@ -39,12 +40,15 @@
 	let previewMedia = $state<EvidenceMedia | null>(null);
 	let lightboxOpen = $state(false);
 	let statusForm = $state<HTMLFormElement | null>(null);
+	let statusMenuOpen = $state(false);
+	let statusUpdating = $state(false);
 
 	const findingPreview = $derived(displayList(issue.finding)[0]);
 	const mediaCount = $derived(issue.evidence_media?.length ?? 0);
 
 	function submitStatus(status: BugStatus) {
-		if (!statusForm) return;
+		if (!statusForm || statusUpdating) return;
+		statusMenuOpen = false;
 		const statusInput = statusForm.elements.namedItem('status') as HTMLInputElement | null;
 		if (statusInput) statusInput.value = status;
 		statusForm.requestSubmit();
@@ -107,6 +111,7 @@
 						<span
 							class="inline-flex"
 							role="presentation"
+							data-no-card-click
 							onclick={(event) => event.stopPropagation()}
 							onkeydown={(event) => event.stopPropagation()}
 						>
@@ -115,11 +120,22 @@
 								method="POST"
 								action="?/updateStatus"
 								use:enhance={() => {
-									return async ({ result, update }) => {
+									statusUpdating = true;
+									statusMenuOpen = false;
+									const resetLoading = () => {
+										statusUpdating = false;
+										statusMenuOpen = false;
+									};
+									const loadingTimeout = setTimeout(() => {
+										statusUpdating = false;
+										toast.error('Status update timed out. Try again.');
+									}, 20_000);
+
+									return async ({ result }) => {
 										try {
-											await update();
+											await applyAction(result);
 											if (result.type === 'success') {
-												toast.success(`${issue.id} status updated`);
+												toast.success(`${issue.id} status updated`, { duration: 2500 });
 											} else if (result.type === 'failure') {
 												toast.error(
 													(result.data as { message?: string })?.message ??
@@ -130,48 +146,59 @@
 											}
 										} catch {
 											toast.error('An unexpected error occurred while updating status');
+										} finally {
+											clearTimeout(loadingTimeout);
+											resetLoading();
 										}
 									};
 								}}
 							>
 								<input type="hidden" name="id" value={issue.id} />
 								<input type="hidden" name="status" value={issue.status} />
-								<DropdownMenu>
-									<DropdownMenuTrigger>
-										{#snippet child({ props })}
-											<button
-												{...props}
-												type="button"
-												class={cn(
-													badgeVariants({ variant: 'outline' }),
-													STATUS_STYLES[issue.status]
-												)}
-											>
-												{STATUS_LABELS[issue.status]}
-												<ChevronDownIcon class="size-3 opacity-70" />
-											</button>
-										{/snippet}
-									</DropdownMenuTrigger>
-									<DropdownMenuContent align="start">
-										{#each STATUSES as status}
-											<DropdownMenuItem
-												class={cn(
-													'cursor-pointer',
-													status === issue.status && 'bg-accent'
-												)}
-												onclick={(event) => {
-													event.stopPropagation();
-													submitStatus(status);
-												}}
-											>
-												<span
-													class="size-2 shrink-0 rounded-full {STATUS_DOT_STYLES[status]}"
-												></span>
-												{STATUS_LABELS[status]}
-											</DropdownMenuItem>
-										{/each}
-									</DropdownMenuContent>
-								</DropdownMenu>
+								{#key `${issue.id}-${issue.status}`}
+									<DropdownMenu bind:open={statusMenuOpen}>
+										<DropdownMenuTrigger disabled={statusUpdating}>
+											{#snippet child({ props })}
+												<button
+													{...props}
+													type="button"
+													disabled={statusUpdating || props.disabled}
+													aria-busy={statusUpdating}
+													class={cn(
+														badgeVariants({ variant: 'outline' }),
+														STATUS_STYLES[issue.status],
+														statusUpdating && 'pointer-events-none opacity-70'
+													)}
+												>
+													{#if statusUpdating}
+														<Loader2Icon class="size-3 animate-spin" />
+														Updating…
+													{:else}
+														{STATUS_LABELS[issue.status]}
+														<ChevronDownIcon class="size-3 opacity-70" />
+													{/if}
+												</button>
+											{/snippet}
+										</DropdownMenuTrigger>
+										<DropdownMenuContent align="start">
+											{#each STATUSES as status}
+												<DropdownMenuItem
+													class={cn(
+														'cursor-pointer',
+														status === issue.status && 'bg-accent'
+													)}
+													disabled={statusUpdating}
+													onSelect={() => submitStatus(status)}
+												>
+													<span
+														class="size-2 shrink-0 rounded-full {STATUS_DOT_STYLES[status]}"
+													></span>
+													{STATUS_LABELS[status]}
+												</DropdownMenuItem>
+											{/each}
+										</DropdownMenuContent>
+									</DropdownMenu>
+								{/key}
 							</form>
 						</span>
 
