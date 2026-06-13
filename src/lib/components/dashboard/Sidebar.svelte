@@ -15,21 +15,23 @@
 	let {
 		report,
 		onViewChange,
-		currentView = 'active'
+		currentView = 'active',
+		class: className = ''
 	}: {
 		report: ReportView;
 		onViewChange?: (view: FilterView) => void;
 		currentView?: FilterView;
+		class?: string;
 	} = $props();
 </script>
 
-<aside class="space-y-4">
+<aside class={cn('order-2 min-w-0 space-y-3 xl:order-none xl:space-y-4', className)}>
 	<Card size="sm" class={cn(ui.cardPanel, 'border-border/60 bg-card/45 backdrop-blur-md shadow-sm')}>
 		<details class="group">
 			<summary
 				class="cursor-pointer list-none [&::-webkit-details-marker]:hidden"
 			>
-				<CardHeader class={ui.cardHeader}>
+				<CardHeader class="{ui.cardHeader} py-2.5 xl:py-3">
 					<CardTitle class="flex items-center justify-between gap-2 text-sm font-semibold">
 						<span class="flex items-center gap-2">
 							<ShieldIcon class="size-4 text-primary-muted" />
@@ -58,13 +60,13 @@
 	</Card>
 
 	<Card size="sm" class={cn(ui.cardPanel, 'border-border/60 bg-card/45 backdrop-blur-md shadow-sm')}>
-		<CardHeader class={ui.cardHeader}>
+		<CardHeader class="{ui.cardHeader} py-2.5 xl:py-3">
 			<CardTitle class="flex items-center gap-2 text-sm font-semibold">
 				<CircleCheckIcon class="size-4 text-severity-low" />
 				No Issues Recorded
 			</CardTitle>
 		</CardHeader>
-		<CardContent class={cn(ui.badgeRow, ui.cardContent)}>
+		<CardContent class={cn(ui.badgeRow, ui.cardContent, 'pt-0')}>
 			{#each report.levels_with_no_issues_recorded as level}
 				<Badge variant="outline" class="border-severity-low/20 bg-severity-low/8 text-severity-low">
 					{level}
@@ -73,5 +75,10 @@
 		</CardContent>
 	</Card>
 
-	<BreakdownChart summary={report.summary} {onViewChange} {currentView} />
+	<BreakdownChart
+		class="hidden xl:block"
+		summary={report.summary}
+		{onViewChange}
+		{currentView}
+	/>
 </aside>

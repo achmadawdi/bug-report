@@ -7,7 +7,6 @@
 		reportTypeSchema,
 		testerLevelSchema
 	} from '$lib/types.js';
-	import { Card, CardContent } from '$lib/components/ui/card/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
@@ -72,6 +71,7 @@
 		currentReportSlug = '',
 		relatedReports = [],
 		workflowStatus = 'open',
+		embedded = false,
 		onExportJson,
 		onExportPdf
 	}: {
@@ -82,6 +82,7 @@
 		currentReportSlug?: string;
 		relatedReports?: ReportSummary[];
 		workflowStatus?: ReportWorkflowStatus;
+		embedded?: boolean;
 		onExportJson: () => void;
 		onExportPdf: () => void;
 	} = $props();
@@ -172,24 +173,37 @@
 	);
 </script>
 
-<Card class={cn(ui.cardPanel, 'border-border/60 bg-card/45 backdrop-blur-md shadow-sm')}>
-	<CardContent class="p-0">
-		<div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between {ui.cardPadding}">
-			<div class="grid min-w-0 flex-1 {ui.gridLg} sm:grid-cols-2 xl:grid-cols-4">
-				{#each primaryItems as item}
-					<div class="flex min-w-0 {ui.grid}">
-						<div class={ui.iconTile}>
-							<item.icon class={ui.iconTileIcon} />
+<div
+	class={cn(
+		embedded
+			? 'border-t border-border/60'
+			: 'ring-foreground/10 overflow-hidden rounded-xl ring-1 border-border/60 bg-card/45 py-0 shadow-sm backdrop-blur-md',
+		!embedded && ui.cardPanel
+	)}
+>
+		<div class="@container px-4 py-3 md:px-6 md:py-4">
+			<div
+				class="flex flex-col gap-3 @3xl:flex-row @3xl:items-center @3xl:justify-between @3xl:gap-4"
+			>
+				<div
+					class="grid min-w-0 grid-cols-2 gap-x-4 gap-y-3 @sm:grid-cols-4 @sm:gap-x-3 @3xl:inline-grid @3xl:w-auto @3xl:gap-x-5"
+				>
+					{#each primaryItems as item}
+						<div class="flex min-w-0 items-start gap-2.5">
+							<div class={ui.iconTile}>
+								<item.icon class={ui.iconTileIcon} />
+							</div>
+							<div class="min-w-0">
+								<p class={ui.sectionTitle}>{item.label}</p>
+								<p class="mt-0.5 text-sm leading-snug font-medium">{item.value}</p>
+							</div>
 						</div>
-						<div class="min-w-0">
-							<p class={ui.sectionTitle}>{item.label}</p>
-							<p class="mt-1 text-sm leading-snug font-medium">{item.value}</p>
-						</div>
-					</div>
-				{/each}
-			</div>
+					{/each}
+				</div>
 
-			<div class="flex flex-wrap items-center gap-2 lg:flex-col lg:items-end lg:shrink-0">
+				<div
+					class="flex flex-wrap items-center gap-2 border-t border-border/40 pt-3 @3xl:border-t-0 @3xl:pt-0 @3xl:shrink-0 @3xl:justify-end"
+				>
 				<form
 					method="POST"
 					action="?/updateWorkflowStatus"
@@ -247,8 +261,7 @@
 					{/each}
 				</form>
 
-				<div class="flex shrink-0 items-center gap-2">
-					<DropdownMenu>
+				<DropdownMenu>
 						<DropdownMenuTrigger>
 							{#snippet child({ props })}
 								<Button
@@ -283,22 +296,22 @@
 						class="{ui.controlSm} shrink-0 px-3 text-xs border-border-subtle bg-background/40 hover:bg-muted/40 hover:text-foreground transition-colors"
 						onclick={openEdit}
 					>
-						<PencilIcon class="size-3.5" />
-						Edit
-					</Button>
-				</div>
+					<PencilIcon class="size-3.5" />
+					Edit
+				</Button>
 			</div>
 		</div>
+	</div>
 
 		{#if currentGroupTitle}
-			<div class="border-t border-border/60 {ui.cardPadding}">
-				<div class="flex {ui.grid}">
+			<div class="border-t border-border/60 px-4 py-3 md:px-6">
+				<div class="flex items-start gap-2.5">
 					<div class={ui.iconTile}>
 						<FolderTreeIcon class={ui.iconTileIcon} />
 					</div>
 					<div class="min-w-0">
 						<p class={ui.sectionTitle}>Project group</p>
-						<p class="mt-1 text-sm leading-relaxed font-medium text-foreground/90">
+						<p class="mt-0.5 text-sm leading-snug font-medium text-foreground/90">
 							{currentGroupTitle}
 						</p>
 					</div>
@@ -400,8 +413,7 @@
 				{/if}
 			</div>
 		{/if}
-	</CardContent>
-</Card>
+</div>
 
 <Dialog bind:open={editOpen}>
 	<DialogContent class="flex max-h-[min(90vh,44rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">

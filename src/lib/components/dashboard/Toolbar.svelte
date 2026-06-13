@@ -68,17 +68,17 @@
 	);
 </script>
 
-<div class="sticky top-4 z-20">
+<div class="sticky top-0 z-20 sm:top-4">
 	<Card
 		class={cn(
 			ui.cardPanel,
-			'border-border/60 bg-card/85 backdrop-blur-md shadow-sm'
+			'border-border/60 bg-card/85 shadow-sm backdrop-blur-md'
 		)}
 	>
-		<CardContent class="space-y-3 {ui.cardPadding}">
-			<!-- Row 1: search + count + actions -->
-			<div class="flex flex-wrap items-center gap-2">
-				<div class="relative min-w-[200px] flex-1">
+		<CardContent class="space-y-2.5 p-3 sm:space-y-3 sm:p-4">
+			<!-- Row 1: search + actions -->
+			<div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+				<div class="relative min-w-0 w-full sm:max-w-none sm:min-w-[12rem] sm:flex-1">
 					<SearchIcon
 						class="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground/70"
 					/>
@@ -90,25 +90,25 @@
 					/>
 				</div>
 
-				<span
-					class="hidden h-8 shrink-0 items-center rounded-lg border border-border-subtle bg-secondary/40 px-3 text-xs text-muted-foreground sm:inline-flex"
-				>
-					<span class="font-semibold text-foreground">{filteredCount}</span>/{issueTotal}
-				</span>
-
-				{#if filtersActive}
-					<Button
-						size="sm"
-						variant="ghost"
-						class="h-8 px-2.5 text-xs text-muted-foreground hover:bg-muted/30 hover:text-foreground transition-colors"
-						onclick={onClearFilters}
+				<div class="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
+					<span
+						class="inline-flex h-8 shrink-0 items-center rounded-lg border border-border-subtle bg-secondary/40 px-2.5 text-xs text-muted-foreground sm:px-3"
 					>
-						<XIcon class="size-3.5" />
-						<span class="hidden sm:inline">Clear</span>
-					</Button>
-				{/if}
+						<span class="font-semibold text-foreground">{filteredCount}</span>/{issueTotal}
+					</span>
 
-				<div class="ml-auto flex shrink-0 items-center gap-2">
+					{#if filtersActive}
+						<Button
+							size="sm"
+							variant="ghost"
+							class="h-8 px-2.5 text-xs text-muted-foreground hover:bg-muted/30 hover:text-foreground transition-colors"
+							onclick={onClearFilters}
+						>
+							<XIcon class="size-3.5" />
+							<span class="hidden sm:inline">Clear</span>
+						</Button>
+					{/if}
+
 					<DropdownMenu>
 						<DropdownMenuTrigger>
 							{#snippet child({ props })}
@@ -159,7 +159,9 @@
 
 			<!-- Row 3: severity chips + dropdown filters -->
 			<div class="flex flex-col gap-2 lg:flex-row lg:items-center">
-				<div class="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth snap-x -mx-4 px-4 sm:mx-0 sm:px-0">
+				<div
+					class="flex min-w-0 items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth snap-x sm:gap-2 sm:flex-1"
+				>
 					<Button
 						size="sm"
 						variant="outline"
@@ -199,7 +201,7 @@
 					{/each}
 				</div>
 
-				<div class="grid w-full grid-cols-1 gap-2 sm:grid-cols-3 lg:w-80 lg:shrink-0">
+				<div class="grid w-full grid-cols-3 gap-1.5 sm:gap-2 lg:w-80 lg:shrink-0">
 					<Select
 						type="single"
 						value={filters.area}
@@ -257,13 +259,6 @@
 						</SelectContent>
 					</Select>
 				</div>
-
-				<p class="text-xs text-muted-foreground sm:hidden">
-					{filteredCount}/{issueTotal}
-					{#if filtersActive}
-						· filtered
-					{/if}
-				</p>
 			</div>
 		</CardContent>
 	</Card>
