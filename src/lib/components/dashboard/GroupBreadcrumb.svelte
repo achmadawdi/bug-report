@@ -13,14 +13,14 @@
 	} = $props();
 </script>
 
-<nav class="flex items-center gap-1.5 text-sm text-muted-foreground" aria-label="Breadcrumb">
+<nav class="flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground" aria-label="Breadcrumb">
 	<button
 		type="button"
-		class="font-medium transition-colors hover:text-foreground"
+		class="min-w-0 truncate font-medium transition-colors hover:text-foreground"
 		onclick={() => goto(groupPath(group.slug))}
 	>
 		{group.title}
 	</button>
 	<ChevronRightIcon class="size-3.5 shrink-0" />
-	<span class="truncate text-foreground">{currentTitle}</span>
+	<span class="min-w-0 truncate text-foreground">{currentTitle}</span>
 </nav>

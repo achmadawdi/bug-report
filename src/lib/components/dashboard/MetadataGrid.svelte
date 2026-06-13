@@ -174,7 +174,7 @@
 
 <Card class={ui.cardPanel}>
 	<CardContent class="p-0">
-		<div class="flex items-start justify-between gap-4 {ui.cardPadding}">
+		<div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between {ui.cardPadding}">
 			<div class="grid min-w-0 flex-1 {ui.gridLg} sm:grid-cols-2 xl:grid-cols-4">
 				{#each primaryItems as item}
 					<div class="flex min-w-0 {ui.grid}">
@@ -189,7 +189,7 @@
 				{/each}
 			</div>
 
-			<div class="flex shrink-0 flex-col items-end gap-2">
+			<div class="flex flex-wrap items-center gap-2 lg:flex-col lg:items-end lg:shrink-0">
 				<form
 					method="POST"
 					action="?/updateWorkflowStatus"

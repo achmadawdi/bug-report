@@ -154,11 +154,11 @@
 
 			<!-- Row 3: severity chips + dropdown filters -->
 			<div class="flex flex-col gap-2 lg:flex-row lg:items-center">
-				<div class="flex min-w-0 flex-1 items-center gap-2">
+				<div class="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth snap-x -mx-4 px-4 sm:mx-0 sm:px-0">
 					<Button
 						size="sm"
 						variant={filters.severity === 'all' ? 'default' : 'outline'}
-						class="h-8 min-w-0 flex-1 px-2 text-xs"
+						class="h-8 min-w-0 shrink-0 sm:flex-1 px-2 text-xs"
 						onclick={() => (filters.severity = 'all')}
 					>
 						<span class="truncate">All</span>
@@ -168,7 +168,7 @@
 						<Button
 							size="sm"
 							variant={filters.severity === severity ? 'default' : 'outline'}
-							class="h-8 min-w-0 flex-1 px-2 text-xs {filters.severity === severity
+							class="h-8 min-w-0 shrink-0 sm:flex-1 px-2 text-xs {filters.severity === severity
 								? ''
 								: SEVERITY_STYLES[severity].badge}"
 							onclick={() => (filters.severity = severity)}
@@ -179,7 +179,7 @@
 					{/each}
 				</div>
 
-				<div class="grid w-full grid-cols-3 {ui.grid} lg:w-80 lg:shrink-0">
+				<div class="grid w-full grid-cols-1 gap-2 sm:grid-cols-3 lg:w-80 lg:shrink-0">
 					<Select
 						type="single"
 						value={filters.area}

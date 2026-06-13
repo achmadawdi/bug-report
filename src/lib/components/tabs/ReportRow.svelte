@@ -32,33 +32,38 @@
 	onpointerenter={() => preloadRoute(reportPath(report.slug))}
 	onfocus={() => preloadRoute(reportPath(report.slug))}
 >
-	<div class="min-w-0 flex-1 space-y-1">
-		<p class="truncate font-medium">{report.title}</p>
-		<p class="font-mono text-xs text-muted-foreground">{report.slug}</p>
+	<div class="min-w-0 flex-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+		<div class="min-w-0 space-y-1">
+			<p class="truncate font-medium">{report.title}</p>
+			<p class="font-mono text-xs text-muted-foreground">{report.slug}</p>
+		</div>
+		<div class="flex flex-wrap items-center gap-2">
+			<p class="text-xs text-muted-foreground sm:hidden">
+				{displayDate(report.testDate)}
+			</p>
+			{#if report.workflowStatus !== 'open'}
+				<Badge variant="outline" class={PROJECT_WORKFLOW_STYLES[report.workflowStatus]}>
+					{PROJECT_WORKFLOW_LABELS[report.workflowStatus]}
+				</Badge>
+			{/if}
+			<Badge variant="secondary" class="gap-1">
+				<BugIcon />
+				{report.issueCount}
+			</Badge>
+			{#if report.openCount > 0}
+				<Badge variant="outline">{report.openCount} open</Badge>
+			{/if}
+			{#if report.criticalCount > 0}
+				<Badge variant="destructive" class="gap-1">
+					<AlertTriangleIcon />
+					{report.criticalCount}
+				</Badge>
+			{/if}
+		</div>
 	</div>
 	<p class="hidden shrink-0 text-xs text-muted-foreground sm:block">
 		{displayDate(report.testDate)}
 	</p>
-	<div class="flex shrink-0 items-center gap-2">
-		{#if report.workflowStatus !== 'open'}
-			<Badge variant="outline" class={PROJECT_WORKFLOW_STYLES[report.workflowStatus]}>
-				{PROJECT_WORKFLOW_LABELS[report.workflowStatus]}
-			</Badge>
-		{/if}
-		<Badge variant="secondary" class="gap-1">
-			<BugIcon />
-			{report.issueCount}
-		</Badge>
-		{#if report.openCount > 0}
-			<Badge variant="outline">{report.openCount} open</Badge>
-		{/if}
-		{#if report.criticalCount > 0}
-			<Badge variant="destructive" class="gap-1">
-				<AlertTriangleIcon />
-				{report.criticalCount}
-			</Badge>
-		{/if}
-	</div>
 	<ChevronRightIcon
 		class="size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
 	/>

@@ -33,7 +33,7 @@
 		<div class="flex h-full flex-col gap-2">
 			<button
 				type="button"
-				class="relative flex-1 overflow-hidden rounded-lg border border-border bg-secondary/40"
+				class="relative w-full aspect-video sm:flex-1 sm:aspect-auto overflow-hidden rounded-lg border border-border bg-secondary/40"
 				onclick={(event) => handlePreview(event, previewItems[0])}
 			>
 				{#if previewItems[0].type === 'image'}
