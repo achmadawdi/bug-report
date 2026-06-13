@@ -19,7 +19,7 @@ INSERT INTO project_testing_sessions (
 SELECT
 	slug,
 	CASE
-		WHEN test_date ~ '^\\d{4}-\\d{2}-\\d{2}$' THEN test_date
+		WHEN test_date ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' THEN test_date
 		ELSE '1970-01-01'
 	END,
 	CASE
@@ -41,7 +41,7 @@ SELECT
 	END,
 	GREATEST(
 		1,
-		COALESCE(NULLIF(regexp_replace(tester, '\\D', '', 'g'), '')::int, 1)
+		COALESCE(NULLIF(regexp_replace(tester, '[^0-9]', '', 'g'), '')::int, 1)
 	),
 	COALESCE(NULLIF(tester_version, ''), ''),
 	'Mixed',
@@ -49,6 +49,17 @@ SELECT
 	NULL
 FROM projects
 ON CONFLICT (project_slug) DO NOTHING
+`.trim();
+
+const DROP_TEST_DATE_CONSTRAINT_SQL = `
+ALTER TABLE project_testing_sessions
+	DROP CONSTRAINT IF EXISTS project_testing_sessions_test_date_format_check
+`.trim();
+
+const ADD_TEST_DATE_CONSTRAINT_SQL = `
+ALTER TABLE project_testing_sessions
+	ADD CONSTRAINT project_testing_sessions_test_date_format_check
+	CHECK (test_date ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
 `.trim();
 
 const ADD_PROJECTS_TYPE_CHECK_SQL = `
@@ -81,6 +92,8 @@ export async function runMigrations(): Promise<void> {
 	}
 
 	await sql.query(ADD_PROJECTS_TYPE_CHECK_SQL, []);
+	await sql.query(DROP_TEST_DATE_CONSTRAINT_SQL, []);
+	await sql.query(ADD_TEST_DATE_CONSTRAINT_SQL, []);
 	await sql.query(BACKFILL_TESTING_SESSIONS_SQL, []);
 
 	migrated = true;
