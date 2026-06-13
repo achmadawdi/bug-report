@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS project_testing_sessions (
 	test_scope TEXT,
 	environment TEXT,
 	CONSTRAINT project_testing_sessions_test_date_format_check
-		CHECK (test_date ~ '^\d{4}-\d{2}-\d{2}$'),
+		CHECK (test_date ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'),
 	CONSTRAINT project_testing_sessions_minecraft_edition_check
 		CHECK (minecraft_edition IN ('Education', 'Bedrock', 'Java', 'Legacy')),
 	CONSTRAINT project_testing_sessions_device_type_check
