@@ -21,6 +21,7 @@ import {
 	evidenceMediaTypeSchema,
 	issueFormSchema,
 	reportMetaSchema,
+	testingSessionSchema,
 	statusSchema
 } from '$lib/types.js';
 import type { Actions, PageServerLoad } from './$types.js';
@@ -216,27 +217,43 @@ export const actions: Actions = {
 
 	updateReport: async ({ request, params }) => {
 		const formData = await request.formData();
+		const testScopeRaw = String(formData.get('test_scope') ?? '').trim();
+		const environmentRaw = String(formData.get('environment') ?? '').trim();
 
-		const parsed = reportMetaSchema.safeParse({
+		const reportParsed = reportMetaSchema.safeParse({
 			title: String(formData.get('title') ?? ''),
 			type: String(formData.get('type') ?? ''),
-			platform: String(formData.get('platform') ?? ''),
-			version_tested: String(formData.get('version_tested') ?? ''),
-			device: String(formData.get('device') ?? ''),
-			tester: String(formData.get('tester') ?? ''),
-			tester_version: String(formData.get('tester_version') ?? ''),
-			test_date: String(formData.get('test_date') ?? ''),
-			test_scope: String(formData.get('test_scope') ?? ''),
 			version: String(formData.get('version') ?? ''),
 			source_file: String(formData.get('source_file') ?? '')
 		});
 
-		if (!parsed.success) {
-			return fail(400, { message: 'Invalid report metadata.', issues: parsed.error.flatten() });
+		const sessionParsed = testingSessionSchema.safeParse({
+			test_date: String(formData.get('test_date') ?? ''),
+			minecraft_edition: String(formData.get('minecraft_edition') ?? ''),
+			game_version_tested: String(formData.get('game_version_tested') ?? ''),
+			device_type: String(formData.get('device_type') ?? ''),
+			tester_count: Number(formData.get('tester_count')),
+			tester_version: String(formData.get('tester_version') ?? ''),
+			tester_education_level: String(formData.get('tester_education_level') ?? ''),
+			test_scope: testScopeRaw === '' ? null : testScopeRaw,
+			environment: environmentRaw === '' ? null : environmentRaw
+		});
+
+		if (!reportParsed.success || !sessionParsed.success) {
+			return fail(400, {
+				message: 'Invalid report metadata.',
+				issues: {
+					report: reportParsed.success ? undefined : reportParsed.error.flatten(),
+					testing_session: sessionParsed.success ? undefined : sessionParsed.error.flatten()
+				}
+			});
 		}
 
 		try {
-			const report = await updateReport(params.project, parsed.data);
+			const report = await updateReport(params.project, {
+				report: reportParsed.data,
+				testing_session: sessionParsed.data
+			});
 			return { success: true, message: 'Report details updated.', report };
 		} catch (err) {
 			return fail(500, {

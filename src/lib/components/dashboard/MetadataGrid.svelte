@@ -1,10 +1,23 @@
 <script lang="ts">
-	import type { ReportMeta } from '$lib/types.js';
+	import type { ReportMeta, TestingSession } from '$lib/types.js';
+	import {
+		deviceTypeSchema,
+		environmentSchema,
+		minecraftEditionSchema,
+		reportTypeSchema,
+		testerEducationLevelSchema
+	} from '$lib/types.js';
 	import { Card, CardContent } from '$lib/components/ui/card/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
+	import {
+		Select,
+		SelectContent,
+		SelectItem,
+		SelectTrigger
+	} from '$lib/components/ui/select/index.js';
 	import {
 		Dialog,
 		DialogContent,
@@ -15,7 +28,7 @@
 	} from '$lib/components/ui/dialog/index.js';
 	import { enhance } from '$app/forms';
 	import { toast } from 'svelte-sonner';
-	import { displayDate } from '$lib/format.js';
+	import { displayDate, displayNumber, displayText } from '$lib/format.js';
 	import { ui } from '$lib/ui-layout.js';
 	import Gamepad2Icon from '@lucide/svelte/icons/gamepad-2';
 	import MonitorIcon from '@lucide/svelte/icons/monitor';
@@ -23,34 +36,74 @@
 	import CalendarIcon from '@lucide/svelte/icons/calendar';
 	import TargetIcon from '@lucide/svelte/icons/target';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
+	import ServerIcon from '@lucide/svelte/icons/server';
 
-	let { report }: { report: ReportMeta } = $props();
+	let {
+		report,
+		testing_session
+	}: {
+		report: ReportMeta;
+		testing_session: TestingSession;
+	} = $props();
+
+	const reportTypes = reportTypeSchema.options;
+	const minecraftEditions = minecraftEditionSchema.options;
+	const deviceTypes = deviceTypeSchema.options;
+	const educationLevels = testerEducationLevelSchema.options;
+	const environments = environmentSchema.options;
 
 	let editOpen = $state(false);
 	let saving = $state(false);
-	let draft = $state<ReportMeta>({
+	let reportDraft = $state<ReportMeta>({
 		title: '',
-		type: '',
-		platform: '',
-		version_tested: '',
-		device: '',
-		tester: '',
-		tester_version: '',
-		test_date: '',
-		test_scope: '',
+		type: 'QA Testing Report',
 		version: '',
 		source_file: ''
 	});
+	let sessionDraft = $state<TestingSession>({
+		test_date: '',
+		minecraft_edition: 'Education',
+		game_version_tested: '',
+		device_type: 'Windows',
+		tester_count: 1,
+		tester_version: '',
+		tester_education_level: 'Mixed',
+		test_scope: null,
+		environment: null
+	});
+
+	const environmentValue = $derived(sessionDraft.environment ?? '');
 
 	const primaryItems = $derived([
-		{ label: 'Platform', value: report.platform, icon: Gamepad2Icon },
-		{ label: 'Version', value: report.version_tested, icon: MonitorIcon },
-		{ label: 'Tested', value: displayDate(report.test_date), icon: CalendarIcon },
-		{ label: 'Tester', value: `${report.tester} · ${report.device}`, icon: UsersIcon }
+		{
+			label: 'Minecraft Edition',
+			value: displayText(testing_session.minecraft_edition),
+			icon: Gamepad2Icon
+		},
+		{
+			label: 'Game Version',
+			value: displayText(testing_session.game_version_tested),
+			icon: MonitorIcon
+		},
+		{
+			label: 'Tested',
+			value: displayDate(testing_session.test_date),
+			icon: CalendarIcon
+		},
+		{
+			label: 'Testers',
+			value: `${displayNumber(testing_session.tester_count)} · ${displayText(testing_session.device_type)}`,
+			icon: UsersIcon
+		}
 	]);
 
 	function openEdit() {
-		draft = { ...report };
+		reportDraft = { ...report };
+		sessionDraft = {
+			...testing_session,
+			test_scope: testing_session.test_scope ?? '',
+			environment: testing_session.environment ?? null
+		};
 		editOpen = true;
 	}
 </script>
@@ -91,9 +144,25 @@
 				</div>
 				<div class="min-w-0">
 					<p class={ui.sectionTitle}>Scope</p>
-					<p class="mt-1 text-sm leading-relaxed text-foreground/90">{report.test_scope}</p>
+					<p class="mt-1 text-sm leading-relaxed text-foreground/90">
+						{displayText(testing_session.test_scope)}
+					</p>
 				</div>
 			</div>
+
+			{#if testing_session.environment}
+				<div class="mt-4 flex {ui.grid}">
+					<div class={ui.iconTile}>
+						<ServerIcon class={ui.iconTileIcon} />
+					</div>
+					<div class="min-w-0">
+						<p class={ui.sectionTitle}>Environment</p>
+						<p class="mt-1 text-sm leading-relaxed text-foreground/90">
+							{displayText(testing_session.environment)}
+						</p>
+					</div>
+				</div>
+			{/if}
 		</div>
 	</CardContent>
 </Card>
@@ -142,33 +211,37 @@
 							id="meta-title"
 							name="title"
 							class={ui.input}
-							bind:value={draft.title}
+							bind:value={reportDraft.title}
 							required
 						/>
 					</div>
 
 					<div class="grid {ui.grid} sm:grid-cols-2">
 						<div class={ui.field}>
-							<Label for="meta-type" class={ui.label}>
-								Report Type
-							</Label>
-							<Input
-								id="meta-type"
-								name="type"
-								class={ui.input}
-								bind:value={draft.type}
-								required
-							/>
+							<Label class={ui.label}>Report Type</Label>
+							<Select
+								type="single"
+								value={reportDraft.type}
+								onValueChange={(value) => {
+									if (value) reportDraft.type = value as ReportMeta['type'];
+								}}
+							>
+								<SelectTrigger class={ui.selectTrigger}>{reportDraft.type}</SelectTrigger>
+								<SelectContent>
+									{#each reportTypes as type}
+										<SelectItem value={type}>{type}</SelectItem>
+									{/each}
+								</SelectContent>
+							</Select>
+							<input type="hidden" name="type" value={reportDraft.type} />
 						</div>
 						<div class={ui.field}>
-							<Label for="meta-version" class={ui.label}>
-								Release Version
-							</Label>
+							<Label for="meta-version" class={ui.label}>Release Version</Label>
 							<Input
 								id="meta-version"
 								name="version"
 								class={ui.input}
-								bind:value={draft.version}
+								bind:value={reportDraft.version}
 								required
 							/>
 						</div>
@@ -180,26 +253,34 @@
 
 					<div class="grid {ui.grid} sm:grid-cols-2">
 						<div class={ui.field}>
-							<Label for="meta-platform" class={ui.label}>
-								Platform
-							</Label>
-							<Input
-								id="meta-platform"
-								name="platform"
-								class={ui.input}
-								bind:value={draft.platform}
-								required
-							/>
+							<Label class={ui.label}>Minecraft Edition</Label>
+							<Select
+								type="single"
+								value={sessionDraft.minecraft_edition}
+								onValueChange={(value) => {
+									if (value) {
+										sessionDraft.minecraft_edition = value as TestingSession['minecraft_edition'];
+									}
+								}}
+							>
+								<SelectTrigger class={ui.selectTrigger}>
+									{sessionDraft.minecraft_edition}
+								</SelectTrigger>
+								<SelectContent>
+									{#each minecraftEditions as edition}
+										<SelectItem value={edition}>{edition}</SelectItem>
+									{/each}
+								</SelectContent>
+							</Select>
+							<input type="hidden" name="minecraft_edition" value={sessionDraft.minecraft_edition} />
 						</div>
 						<div class={ui.field}>
-							<Label for="meta-version-tested" class={ui.label}>
-								Version Tested
-							</Label>
+							<Label for="meta-game-version" class={ui.label}>Game Version Tested</Label>
 							<Input
-								id="meta-version-tested"
-								name="version_tested"
+								id="meta-game-version"
+								name="game_version_tested"
 								class={ui.input}
-								bind:value={draft.version_tested}
+								bind:value={sessionDraft.game_version_tested}
 								required
 							/>
 						</div>
@@ -207,26 +288,57 @@
 
 					<div class="grid {ui.grid} sm:grid-cols-2">
 						<div class={ui.field}>
-							<Label for="meta-test-date" class={ui.label}>
-								Test Date
-							</Label>
+							<Label for="meta-test-date" class={ui.label}>Test Date</Label>
 							<Input
 								id="meta-test-date"
 								name="test_date"
 								type="date"
 								class={ui.input}
-								bind:value={draft.test_date}
+								bind:value={sessionDraft.test_date}
+								required
 							/>
 						</div>
 						<div class={ui.field}>
-							<Label for="meta-device" class={ui.label}>
-								Device
-							</Label>
+							<Label class={ui.label}>Device Type</Label>
+							<Select
+								type="single"
+								value={sessionDraft.device_type}
+								onValueChange={(value) => {
+									if (value) sessionDraft.device_type = value as TestingSession['device_type'];
+								}}
+							>
+								<SelectTrigger class={ui.selectTrigger}>{sessionDraft.device_type}</SelectTrigger>
+								<SelectContent>
+									{#each deviceTypes as device}
+										<SelectItem value={device}>{device}</SelectItem>
+									{/each}
+								</SelectContent>
+							</Select>
+							<input type="hidden" name="device_type" value={sessionDraft.device_type} />
+						</div>
+					</div>
+
+					<div class="grid {ui.grid} sm:grid-cols-2">
+						<div class={ui.field}>
+							<Label for="meta-tester-count" class={ui.label}>Tester Count</Label>
 							<Input
-								id="meta-device"
-								name="device"
+								id="meta-tester-count"
+								name="tester_count"
+								type="number"
+								min="1"
+								step="1"
 								class={ui.input}
-								bind:value={draft.device}
+								bind:value={sessionDraft.tester_count}
+								required
+							/>
+						</div>
+						<div class={ui.field}>
+							<Label for="meta-tester-version" class={ui.label}>Tester Version</Label>
+							<Input
+								id="meta-tester-version"
+								name="tester_version"
+								class={ui.input}
+								bind:value={sessionDraft.tester_version}
 								required
 							/>
 						</div>
@@ -234,28 +346,52 @@
 
 					<div class="grid {ui.grid} sm:grid-cols-2">
 						<div class={ui.field}>
-							<Label for="meta-tester" class={ui.label}>
-								Tester
-							</Label>
-							<Input
-								id="meta-tester"
-								name="tester"
-								class={ui.input}
-								bind:value={draft.tester}
-								required
+							<Label class={ui.label}>Tester Education Level</Label>
+							<Select
+								type="single"
+								value={sessionDraft.tester_education_level}
+								onValueChange={(value) => {
+									if (value) {
+										sessionDraft.tester_education_level =
+											value as TestingSession['tester_education_level'];
+									}
+								}}
+							>
+								<SelectTrigger class={ui.selectTrigger}>
+									{sessionDraft.tester_education_level}
+								</SelectTrigger>
+								<SelectContent>
+									{#each educationLevels as level}
+										<SelectItem value={level}>{level}</SelectItem>
+									{/each}
+								</SelectContent>
+							</Select>
+							<input
+								type="hidden"
+								name="tester_education_level"
+								value={sessionDraft.tester_education_level}
 							/>
 						</div>
 						<div class={ui.field}>
-							<Label for="meta-tester-version" class={ui.label}>
-								Tester Version
-							</Label>
-							<Input
-								id="meta-tester-version"
-								name="tester_version"
-								class={ui.input}
-								bind:value={draft.tester_version}
-								required
-							/>
+							<Label class={ui.label}>Environment</Label>
+							<Select
+								type="single"
+								value={environmentValue}
+								onValueChange={(value) => {
+									sessionDraft.environment = value === '' ? null : (value as TestingSession['environment']);
+								}}
+							>
+								<SelectTrigger class={ui.selectTrigger}>
+									{displayText(sessionDraft.environment)}
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="">Not set</SelectItem>
+									{#each environments as environment}
+										<SelectItem value={environment}>{environment}</SelectItem>
+									{/each}
+								</SelectContent>
+							</Select>
+							<input type="hidden" name="environment" value={environmentValue} />
 						</div>
 					</div>
 				</section>
@@ -264,28 +400,23 @@
 					<h3 class={ui.sectionTitle}>Scope & Source</h3>
 
 					<div class={ui.field}>
-						<Label for="meta-scope" class={ui.label}>
-							Test Scope
-						</Label>
+						<Label for="meta-scope" class={ui.label}>Test Scope</Label>
 						<Textarea
 							id="meta-scope"
 							name="test_scope"
 							rows={4}
 							class="min-h-24 resize-y bg-background leading-relaxed"
-							bind:value={draft.test_scope}
-							required
+							bind:value={sessionDraft.test_scope}
 						/>
 					</div>
 
 					<div class={ui.field}>
-						<Label for="meta-source" class={ui.label}>
-							Source File
-						</Label>
+						<Label for="meta-source" class={ui.label}>Source File</Label>
 						<Input
 							id="meta-source"
 							name="source_file"
 							class={ui.input}
-							bind:value={draft.source_file}
+							bind:value={reportDraft.source_file}
 							required
 						/>
 					</div>

@@ -8,6 +8,7 @@ import {
 	type ReportSummary,
 	type ReportView,
 	type Severity,
+	type TestingSession,
 	reportDataSchema
 } from '$lib/types.js';
 import { SEVERITIES, STATUSES } from '$lib/constants.js';
@@ -149,19 +150,25 @@ function createEmptyReport(title: string): ReportData {
 	const report: ReportMeta = {
 		title,
 		type: 'QA Testing Report',
-		platform: '',
-		version_tested: '',
-		device: '',
-		tester: '',
-		tester_version: '',
-		test_date: '',
-		test_scope: '',
 		version: '',
 		source_file: ''
 	};
 
+	const testing_session: TestingSession = {
+		test_date: new Date().toISOString().slice(0, 10),
+		minecraft_edition: 'Education',
+		game_version_tested: '',
+		device_type: 'Windows',
+		tester_count: 1,
+		tester_version: '',
+		tester_education_level: 'Mixed',
+		test_scope: null,
+		environment: null
+	};
+
 	return {
 		report,
+		testing_session,
 		severity_guide: { ...DEFAULT_SEVERITY_GUIDE },
 		levels_with_no_issues_recorded: [],
 		issues: []
@@ -186,7 +193,7 @@ export async function listProjects(): Promise<ProjectSummary[]> {
 				slug,
 				title: report.report.title,
 				issueCount: report.issues.length,
-				platform: report.report.platform,
+				platform: report.testing_session.minecraft_edition,
 				version: report.report.version,
 				openCount: report.summary.by_status.open,
 				criticalCount: report.summary.by_severity.Critical,
@@ -243,7 +250,7 @@ function toProjectSummary(slug: string, report: ReportView): ProjectSummary {
 		slug,
 		title: report.report.title,
 		issueCount: report.issues.length,
-		platform: report.report.platform,
+		platform: report.testing_session.minecraft_edition,
 		version: report.report.version,
 		openCount: report.summary.by_status.open,
 		criticalCount: report.summary.by_severity.Critical,
@@ -349,6 +356,7 @@ export async function updateIssue(
 
 		const nextData: ReportData = {
 			report: current.report,
+			testing_session: current.testing_session,
 			severity_guide: current.severity_guide,
 			levels_with_no_issues_recorded: current.levels_with_no_issues_recorded,
 			issues: nextIssues
@@ -361,7 +369,10 @@ export async function updateIssue(
 
 export async function updateReport(
 	project: string,
-	updates: Partial<ReportMeta>
+	updates: {
+		report?: Partial<ReportMeta>;
+		testing_session?: Partial<TestingSession>;
+	}
 ): Promise<ReportView> {
 	return enqueueProjectWrite(project, async () => {
 		const current = await readReport(project);
@@ -369,14 +380,18 @@ export async function updateReport(
 		const nextData: ReportData = {
 			report: {
 				...current.report,
-				...updates
+				...updates.report
+			},
+			testing_session: {
+				...current.testing_session,
+				...updates.testing_session
 			},
 			severity_guide: current.severity_guide,
 			levels_with_no_issues_recorded: current.levels_with_no_issues_recorded,
 			issues: current.issues
 		};
 
-		await writeReportData(project, nextData);
+		await writeReportData(project, reportDataSchema.parse(nextData));
 		return toReportView(nextData);
 	});
 }
@@ -397,6 +412,7 @@ export async function addIssue(
 
 		const nextData: ReportData = {
 			report: current.report,
+			testing_session: current.testing_session,
 			severity_guide: current.severity_guide,
 			levels_with_no_issues_recorded: current.levels_with_no_issues_recorded,
 			issues: [...current.issues, nextIssue]
@@ -422,6 +438,7 @@ export async function addEvidenceMedia(
 
 		const nextData: ReportData = {
 			report: current.report,
+			testing_session: current.testing_session,
 			severity_guide: current.severity_guide,
 			levels_with_no_issues_recorded: current.levels_with_no_issues_recorded,
 			issues: current.issues.map((item) =>
@@ -456,6 +473,7 @@ export async function removeEvidenceMedia(
 
 		const nextData: ReportData = {
 			report: current.report,
+			testing_session: current.testing_session,
 			severity_guide: current.severity_guide,
 			levels_with_no_issues_recorded: current.levels_with_no_issues_recorded,
 			issues: current.issues.map((item) =>

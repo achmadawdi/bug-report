@@ -151,7 +151,7 @@
 {:else}
 <div class="{ui.pageShell} {ui.pageStack}">
 	<ReportHeader report={report.report} />
-	<MetadataGrid report={report.report} />
+	<MetadataGrid report={report.report} testing_session={report.testing_session} />
 
 	<div class="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
 		<Sidebar {report} />

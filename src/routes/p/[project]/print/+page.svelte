@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { SEVERITIES, STATUSES, STATUS_LABELS } from '$lib/constants.js';
 	import { isFiltersActive } from '$lib/filters.js';
-	import { displayDate, displayText } from '$lib/format.js';
+	import { displayDate, displayNumber, displayText } from '$lib/format.js';
 	import IssueFieldsDisplay from '$lib/components/dashboard/IssueFieldsDisplay.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import PrinterIcon from '@lucide/svelte/icons/printer';
@@ -39,19 +39,42 @@
 			<p class="text-sm uppercase tracking-wide text-zinc-500">{displayText(data.report.report.type)}</p>
 			<h1 class="mt-1 text-3xl font-bold">{displayText(data.report.report.title)}</h1>
 			<div class="mt-4 grid gap-2 text-sm text-zinc-700 sm:grid-cols-2">
-				<p><strong>Platform:</strong> {displayText(data.report.report.platform)}</p>
-				<p><strong>Version tested:</strong> {displayText(data.report.report.version_tested)}</p>
-				<p><strong>Test date:</strong> {displayDate(data.report.report.test_date)}</p>
 				<p>
-					<strong>Tester:</strong>
-					{displayText(data.report.report.tester)} · {displayText(data.report.report.device)}
+					<strong>Minecraft edition:</strong>
+					{displayText(data.report.testing_session.minecraft_edition)}
+				</p>
+				<p>
+					<strong>Game version tested:</strong>
+					{displayText(data.report.testing_session.game_version_tested)}
+				</p>
+				<p>
+					<strong>Test date:</strong>
+					{displayDate(data.report.testing_session.test_date)}
+				</p>
+				<p>
+					<strong>Testers:</strong>
+					{displayNumber(data.report.testing_session.tester_count)} ·
+					{displayText(data.report.testing_session.device_type)}
 				</p>
 				<p><strong>Release:</strong> {displayText(data.report.report.version)}</p>
-				<p><strong>Tester version:</strong> {displayText(data.report.report.tester_version)}</p>
+				<p>
+					<strong>Tester version:</strong>
+					{displayText(data.report.testing_session.tester_version)}
+				</p>
+				<p>
+					<strong>Education level:</strong>
+					{displayText(data.report.testing_session.tester_education_level)}
+				</p>
+				{#if data.report.testing_session.environment}
+					<p>
+						<strong>Environment:</strong>
+						{displayText(data.report.testing_session.environment)}
+					</p>
+				{/if}
 				<p><strong>Source file:</strong> {displayText(data.report.report.source_file)}</p>
 			</div>
 			<p class="mt-3 text-sm text-zinc-600">
-				<strong>Scope:</strong> {displayText(data.report.report.test_scope)}
+				<strong>Scope:</strong> {displayText(data.report.testing_session.test_scope)}
 			</p>
 		</header>
 

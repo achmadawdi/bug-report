@@ -1,8 +1,11 @@
 import { z } from 'zod';
 import {
 	issueSchema,
-	reportDataSchema,
+	normalizeReportData,
+	normalizeTestingSession,
+	reportDataInputSchema,
 	reportMetaSchema,
+	testingSessionSchema,
 	type Issue,
 	type ReportData
 } from '$lib/types.js';
@@ -16,12 +19,23 @@ const DEFAULT_SEVERITY_GUIDE: Record<string, string> = {
 	Low: 'Minor visual, text, formatting, or polish issue.'
 };
 
+const legacyReportMetaSchema = reportMetaSchema.extend({
+	platform: z.string().optional(),
+	version_tested: z.string().optional(),
+	device: z.string().optional(),
+	tester: z.string().optional(),
+	tester_version: z.string().optional(),
+	test_date: z.string().optional(),
+	test_scope: z.string().optional()
+});
+
 const exportPayloadSchema = z.object({
 	issues: z.array(issueSchema).min(1),
 	project: z.string().optional(),
 	exported_at: z.string().optional(),
 	filters: z.unknown().optional(),
-	report: reportMetaSchema.optional(),
+	report: legacyReportMetaSchema.optional(),
+	testing_session: testingSessionSchema.partial().optional(),
 	severity_guide: z.record(z.string(), z.string()).optional(),
 	levels_with_no_issues_recorded: z.array(z.string()).optional()
 });
@@ -75,25 +89,31 @@ export function createReportFromExport(
 	issues: Issue[],
 	title: string,
 	extras?: {
-		report?: ReportData['report'];
+		report?: z.infer<typeof legacyReportMetaSchema>;
+		testing_session?: Partial<ReportData['testing_session']>;
 		severity_guide?: ReportData['severity_guide'];
 		levels_with_no_issues_recorded?: ReportData['levels_with_no_issues_recorded'];
 	}
 ): ReportData {
+	const legacy = extras?.report;
+	const testing_session = normalizeTestingSession(extras?.testing_session, {
+		platform: legacy?.platform,
+		version_tested: legacy?.version_tested,
+		device: legacy?.device,
+		tester: legacy?.tester,
+		tester_version: legacy?.tester_version,
+		test_date: legacy?.test_date,
+		test_scope: legacy?.test_scope
+	});
+
 	return {
 		report: {
 			title,
-			type: extras?.report?.type ?? 'QA Testing Report',
-			platform: extras?.report?.platform ?? '',
-			version_tested: extras?.report?.version_tested ?? '',
-			device: extras?.report?.device ?? '',
-			tester: extras?.report?.tester ?? '',
-			tester_version: extras?.report?.tester_version ?? '',
-			test_date: extras?.report?.test_date ?? '',
-			test_scope: extras?.report?.test_scope ?? '',
-			version: extras?.report?.version ?? '',
-			source_file: extras?.report?.source_file ?? ''
+			type: legacy?.type ?? 'QA Testing Report',
+			version: legacy?.version ?? '',
+			source_file: legacy?.source_file ?? ''
 		},
+		testing_session,
 		severity_guide: extras?.severity_guide ?? { ...DEFAULT_SEVERITY_GUIDE },
 		levels_with_no_issues_recorded: extras?.levels_with_no_issues_recorded ?? [],
 		issues
@@ -109,10 +129,18 @@ export function parseImportJson(text: string, nameOverride?: string): ImportPars
 		return { ok: false, errors: ['Invalid JSON.'] };
 	}
 
-	const reportResult = reportDataSchema.safeParse(json);
+	const reportResult = reportDataInputSchema.safeParse(json);
 	if (reportResult.success) {
-		const title = nameOverride?.trim() || reportResult.data.report.title;
-		return buildSuccess('report', reportResult.data, title);
+		try {
+			const data = normalizeReportData(reportResult.data);
+			const title = nameOverride?.trim() || data.report.title;
+			return buildSuccess('report', data, title);
+		} catch (err) {
+			return {
+				ok: false,
+				errors: [err instanceof Error ? err.message : 'Invalid report metadata.']
+			};
+		}
 	}
 
 	const exportResult = exportPayloadSchema.safeParse(json);
@@ -124,6 +152,7 @@ export function parseImportJson(text: string, nameOverride?: string): ImportPars
 			'Imported QA Report';
 		const data = createReportFromExport(exportResult.data.issues, title, {
 			report: exportResult.data.report,
+			testing_session: exportResult.data.testing_session,
 			severity_guide: exportResult.data.severity_guide,
 			levels_with_no_issues_recorded: exportResult.data.levels_with_no_issues_recorded
 		});
