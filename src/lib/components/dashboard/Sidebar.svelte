@@ -24,7 +24,7 @@
 </script>
 
 <aside class="space-y-4">
-	<Card size="sm" class={ui.cardPanel}>
+	<Card size="sm" class={cn(ui.cardPanel, 'border-border/60 bg-card/45 backdrop-blur-md shadow-sm')}>
 		<details class="group">
 			<summary
 				class="cursor-pointer list-none [&::-webkit-details-marker]:hidden"
@@ -32,7 +32,7 @@
 				<CardHeader class={ui.cardHeader}>
 					<CardTitle class="flex items-center justify-between gap-2 text-sm font-semibold">
 						<span class="flex items-center gap-2">
-							<ShieldIcon class="size-4 text-primary" />
+							<ShieldIcon class="size-4 text-primary-muted" />
 							Severity Guide
 						</span>
 						<ChevronDownIcon
@@ -43,10 +43,10 @@
 			</summary>
 			<CardContent class="space-y-3 {ui.cardContent}">
 				{#each SEVERITIES as severity}
-					<div class="rounded-md border border-border bg-secondary/40 p-3">
+					<div class="rounded-md border border-border-subtle bg-secondary/15 p-3">
 						<div class="mb-1 flex items-center gap-2">
 							<span class="size-2 rounded-full {SEVERITY_STYLES[severity].dot}"></span>
-							<span class="text-sm font-semibold">{severity}</span>
+							<span class="text-sm font-semibold text-foreground/90">{severity}</span>
 						</div>
 						<p class="text-xs leading-relaxed text-muted-foreground">
 							{report.severity_guide[severity]}
@@ -57,7 +57,7 @@
 		</details>
 	</Card>
 
-	<Card size="sm" class={ui.cardPanel}>
+	<Card size="sm" class={cn(ui.cardPanel, 'border-border/60 bg-card/45 backdrop-blur-md shadow-sm')}>
 		<CardHeader class={ui.cardHeader}>
 			<CardTitle class="flex items-center gap-2 text-sm font-semibold">
 				<CircleCheckIcon class="size-4 text-severity-low" />
@@ -66,7 +66,7 @@
 		</CardHeader>
 		<CardContent class={cn(ui.badgeRow, ui.cardContent)}>
 			{#each report.levels_with_no_issues_recorded as level}
-				<Badge variant="outline" class="border-severity-low/30 bg-severity-low/10 text-severity-low">
+				<Badge variant="outline" class="border-severity-low/20 bg-severity-low/8 text-severity-low">
 					{level}
 				</Badge>
 			{/each}

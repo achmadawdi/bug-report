@@ -72,7 +72,7 @@
 	<Card
 		class={cn(
 			ui.cardPanel,
-			'border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80'
+			'border-border/60 bg-card/85 backdrop-blur-md shadow-sm'
 		)}
 	>
 		<CardContent class="space-y-3 {ui.cardPadding}">
@@ -80,18 +80,18 @@
 			<div class="flex flex-wrap items-center gap-2">
 				<div class="relative min-w-[200px] flex-1">
 					<SearchIcon
-						class="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
+						class="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground/70"
 					/>
 					<Input
 						bind:ref={searchInput}
-						class="h-8 bg-background pl-8 text-sm"
+						class="h-8 bg-background/40 border-border-subtle pl-8 text-sm focus-visible:ring-primary-muted/30 focus-visible:border-primary/40"
 						placeholder="Search bugs… (/)"
 						bind:value={filters.search}
 					/>
 				</div>
 
 				<span
-					class="hidden h-8 shrink-0 items-center rounded-md border border-border bg-secondary px-2 text-xs text-muted-foreground sm:inline-flex"
+					class="hidden h-8 shrink-0 items-center rounded-lg border border-border-subtle bg-secondary/40 px-3 text-xs text-muted-foreground sm:inline-flex"
 				>
 					<span class="font-semibold text-foreground">{filteredCount}</span>/{issueTotal}
 				</span>
@@ -100,7 +100,7 @@
 					<Button
 						size="sm"
 						variant="ghost"
-						class="h-8 px-2 text-xs"
+						class="h-8 px-2.5 text-xs text-muted-foreground hover:bg-muted/30 hover:text-foreground transition-colors"
 						onclick={onClearFilters}
 					>
 						<XIcon class="size-3.5" />
@@ -112,7 +112,7 @@
 					<DropdownMenu>
 						<DropdownMenuTrigger>
 							{#snippet child({ props })}
-								<Button {...props} variant="outline" size="sm" class="h-8">
+								<Button {...props} variant="outline" size="sm" class="h-8 border-border-subtle bg-background/40 hover:bg-muted/40 px-3 text-xs transition-colors">
 									<DownloadIcon class="size-3.5" />
 									<span class="hidden sm:inline">Export</span>
 									<ChevronDownIcon class="size-3.5" />
@@ -131,7 +131,7 @@
 						</DropdownMenuContent>
 					</DropdownMenu>
 
-					<Button size="sm" class="h-8" onclick={onAdd}>
+					<Button size="sm" class="h-8 bg-primary text-primary-foreground hover:bg-primary/95 shadow-sm px-3 text-xs font-semibold" onclick={onAdd}>
 						<PlusIcon class="size-3.5" />
 						Add Bug
 					</Button>
@@ -139,12 +139,17 @@
 			</div>
 
 			<!-- Row 2: view toggle -->
-			<div class="flex items-center gap-1 rounded-lg border border-border bg-secondary/30 p-1">
+			<div class="flex items-center gap-1 rounded-lg border border-border-subtle bg-secondary/20 p-1">
 				{#each FILTER_VIEWS as view}
 					<Button
 						size="sm"
-						variant={filters.view === view ? 'default' : 'ghost'}
-						class="h-7 flex-1 px-2 text-xs"
+						variant="ghost"
+						class={cn(
+							"h-7 flex-1 px-2 text-xs rounded-md transition-all duration-200",
+							filters.view === view
+								? "bg-primary-surface border border-primary-muted/20 text-primary font-semibold shadow-sm"
+								: "text-muted-foreground hover:text-foreground hover:bg-muted/20"
+						)}
 						onclick={() => (filters.view = view)}
 					>
 						{FILTER_VIEW_LABELS[view]}
@@ -157,20 +162,35 @@
 				<div class="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth snap-x -mx-4 px-4 sm:mx-0 sm:px-0">
 					<Button
 						size="sm"
-						variant={filters.severity === 'all' ? 'default' : 'outline'}
-						class="h-8 min-w-0 shrink-0 sm:flex-1 px-2 text-xs"
+						variant="outline"
+						class={cn(
+							"h-8 min-w-0 shrink-0 sm:flex-1 px-2.5 text-xs transition-all border-border-subtle",
+							filters.severity === 'all'
+								? "bg-primary-surface border-primary-muted/25 text-primary font-semibold shadow-sm"
+								: "bg-background/40 text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+						)}
 						onclick={() => (filters.severity = 'all')}
 					>
 						<span class="truncate">All</span>
 						<span class="ml-1 shrink-0 tabular-nums opacity-70">{totalCount}</span>
 					</Button>
 					{#each SEVERITIES as severity}
+						{@const isSelected = filters.severity === severity}
 						<Button
 							size="sm"
-							variant={filters.severity === severity ? 'default' : 'outline'}
-							class="h-8 min-w-0 shrink-0 sm:flex-1 px-2 text-xs {filters.severity === severity
-								? ''
-								: SEVERITY_STYLES[severity].badge}"
+							variant="outline"
+							class={cn(
+								"h-8 min-w-0 shrink-0 sm:flex-1 px-2.5 text-xs transition-all border-border-subtle",
+								isSelected
+									? severity === 'Critical'
+										? "border-severity-critical/50 bg-severity-critical/15 text-severity-critical font-semibold shadow-sm"
+										: severity === 'High'
+											? "border-severity-high/50 bg-severity-high/15 text-severity-high font-semibold shadow-sm"
+											: severity === 'Medium'
+												? "border-severity-medium/50 bg-severity-medium/15 text-severity-medium font-semibold shadow-sm"
+												: "border-severity-low/50 bg-severity-low/15 text-severity-low font-semibold shadow-sm"
+									: SEVERITY_STYLES[severity].badge
+							)}
 							onclick={() => (filters.severity = severity)}
 						>
 							<span class="truncate">{severity}</span>
@@ -187,7 +207,7 @@
 							if (value) filters.area = value;
 						}}
 					>
-						<SelectTrigger class="h-8 w-full min-w-0 bg-background px-2 text-xs">
+						<SelectTrigger class="h-8 w-full min-w-0 bg-background/40 border-border-subtle hover:bg-muted/30 hover:text-foreground px-2.5 text-xs transition-colors">
 							<span class="truncate">{filters.area === 'all' ? 'All areas' : filters.area}</span>
 						</SelectTrigger>
 						<SelectContent>
@@ -205,7 +225,7 @@
 							if (value) filters.status = value as FilterState['status'];
 						}}
 					>
-						<SelectTrigger class="h-8 w-full min-w-0 bg-background px-2 text-xs">
+						<SelectTrigger class="h-8 w-full min-w-0 bg-background/40 border-border-subtle hover:bg-muted/30 hover:text-foreground px-2.5 text-xs transition-colors">
 							<span class="truncate">
 								{filters.status === 'all' ? 'All statuses' : STATUS_LABELS[filters.status]}
 							</span>
@@ -225,7 +245,7 @@
 							if (value) filters.sort = value as FilterState['sort'];
 						}}
 					>
-						<SelectTrigger class="h-8 w-full min-w-0 bg-background px-2 text-xs">
+						<SelectTrigger class="h-8 w-full min-w-0 bg-background/40 border-border-subtle hover:bg-muted/30 hover:text-foreground px-2.5 text-xs transition-colors">
 							<span class="truncate">{sortLabel}</span>
 						</SelectTrigger>
 						<SelectContent>

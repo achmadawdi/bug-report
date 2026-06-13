@@ -45,8 +45,8 @@
 	const surfaceStyle = $derived(
 		isOpen
 			? isNested
-				? 'border-border/60 bg-secondary/20 hover:border-primary/30 hover:bg-secondary/30'
-				: 'border-border bg-card hover:border-primary/40 hover:bg-card/80'
+				? 'border-border-subtle bg-secondary/20 hover:border-primary-muted/40 hover:bg-card-hover'
+				: 'border-border bg-card/65 hover:border-primary/40 hover:bg-card-hover hover:shadow-sm backdrop-blur-md'
 			: PROJECT_WORKFLOW_CARD_STYLES[report.workflowStatus]
 	);
 	const contentGap = $derived(isNested ? 'gap-2' : ui.gridLg);
@@ -73,8 +73,8 @@
 				class={cn(
 					'flex shrink-0 items-center justify-center rounded-md border transition-colors',
 					isResolved
-						? 'border-border/50 bg-muted/20 text-muted-foreground/70'
-						: 'border-border bg-secondary/60 text-muted-foreground group-hover:border-primary/30 group-hover:text-primary',
+						? 'border-border-subtle bg-surface-subtle/50 text-muted-foreground/60'
+						: 'border-border bg-secondary/30 text-muted-foreground group-hover:border-primary-muted/40 group-hover:bg-primary-surface/30 group-hover:text-primary',
 					isNested ? 'size-8' : 'size-10'
 				)}
 			>
@@ -139,7 +139,7 @@
 						{report.issueCount} total
 					</Badge>
 					{#if report.openCount > 0 && !isResolved}
-						<Badge variant="outline" class={cn('gap-1', badgeSize)}>
+						<Badge variant="outline" class={cn('gap-1 border-severity-high/20 bg-severity-high/6 text-severity-high', badgeSize)}>
 							{report.openCount} open
 						</Badge>
 					{/if}

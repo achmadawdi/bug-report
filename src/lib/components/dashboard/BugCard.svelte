@@ -97,7 +97,7 @@
 		<Card
 			class={cn(
 				ui.cardPanel,
-				'transition-colors hover:border-primary/40 hover:bg-card/80'
+				'border-border/50 bg-card/65 backdrop-blur-md transition-all duration-200 hover:border-primary/40 hover:bg-card-hover hover:shadow-sm'
 			)}
 		>
 			<div class="flex {ui.gridLg} {ui.cardPadding}">
@@ -237,7 +237,7 @@
 							>
 								<button
 									type="button"
-									class="inline-flex size-7 items-center justify-center rounded-md border border-severity-low/35 bg-severity-low/10 text-severity-low transition-colors hover:bg-severity-low/20 disabled:opacity-50"
+									class="inline-flex size-7 items-center justify-center rounded-md border border-severity-low/20 bg-severity-low/6 text-severity-low transition-all duration-200 hover:bg-severity-low/15 hover:border-severity-low/40 disabled:opacity-50 shadow-sm"
 									title="Mark as fixed"
 									disabled={statusUpdating}
 									onclick={markFixed}
