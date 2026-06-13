@@ -86,7 +86,7 @@ export const PROJECT_WORKFLOW_LABELS: Record<ReportWorkflowStatus, string> = {
 
 export const PROJECT_WORKFLOW_STYLES: Record<ReportWorkflowStatus, string> = {
 	open: 'border-severity-high/20 bg-severity-high/8 text-severity-high',
-	resolved: 'border-border-subtle bg-surface-subtle/50 text-muted-foreground',
+	resolved: 'border-severity-low/25 bg-severity-low/8 text-foreground/75 dark:text-severity-low/80',
 	postponed: 'border-border-subtle bg-secondary/40 text-muted-foreground'
 };
 

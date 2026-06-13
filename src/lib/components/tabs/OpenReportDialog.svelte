@@ -24,12 +24,11 @@
 	} from '$lib/components/ui/select/index.js';
 	import { ui } from '$lib/ui-layout.js';
 	import { enhance } from '$app/forms';
-	import { goto } from '$app/navigation';
+	import { navigateToReportFromSummary } from '$lib/report-navigation.js';
 	import { reportPath } from '$lib/routes.js';
 	import { toast } from 'svelte-sonner';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import UploadIcon from '@lucide/svelte/icons/upload';
-	import { upsertTab, saveOpenTabs, loadOpenTabs } from '$lib/tabs.js';
 	import { preloadRoute } from '$lib/preload.js';
 	import GroupAssignField from '$lib/components/dashboard/GroupAssignField.svelte';
 
@@ -67,13 +66,8 @@
 	const showIdConflictOptions = $derived(Boolean(importPreview && importPreview.duplicateIds.length > 0));
 
 	function openReport(report: ReportSummary) {
-		const tabs = upsertTab(loadOpenTabs(), {
-			slug: report.slug,
-			title: report.title
-		});
-		saveOpenTabs(tabs);
 		open = false;
-		goto(reportPath(report.slug));
+		void navigateToReportFromSummary(report);
 	}
 
 	function resetImportState() {

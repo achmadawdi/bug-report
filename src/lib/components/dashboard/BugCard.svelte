@@ -22,14 +22,17 @@
 	} from '$lib/components/ui/dropdown-menu/index.js';
 	import EvidenceThumbnails from './EvidenceThumbnails.svelte';
 	import EvidenceLightbox from './EvidenceLightbox.svelte';
-	import { applyAction, enhance } from '$app/forms';
+	import { enhance } from '$app/forms';
 	import { toast } from 'svelte-sonner';
+	import {
+		enhanceReportForm,
+		getReportSlugContext,
+		reportFormAction
+	} from '$lib/report-forms.js';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import Loader2Icon from '@lucide/svelte/icons/loader-2';
-	import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
 	import { ui } from '$lib/ui-layout.js';
-	import { isResolvedStatus } from '$lib/constants.js';
 
 	let {
 		issue,
@@ -46,6 +49,8 @@
 	let statusUpdating = $state(false);
 	let undoStatus: BugStatus | null = null;
 
+	const reportSlug = getReportSlugContext();
+
 	const findingPreview = $derived(displayList(issue.finding)[0]);
 	const mediaCount = $derived(issue.evidence_media?.length ?? 0);
 
@@ -56,14 +61,6 @@
 		if (statusInput) statusInput.value = status;
 		statusForm.requestSubmit();
 	}
-
-	function markFixed() {
-		if (issue.status === 'fixed') return;
-		undoStatus = issue.status;
-		submitStatus('fixed');
-	}
-
-	const showQuickResolve = $derived(!isResolvedStatus(issue.status));
 
 	function openPreview(media: EvidenceMedia) {
 		previewMedia = media;
@@ -129,52 +126,38 @@
 							<form
 								bind:this={statusForm}
 								method="POST"
-								action="?/updateStatus"
-								use:enhance={() => {
-									statusUpdating = true;
-									statusMenuOpen = false;
-									const resetLoading = () => {
+								action={reportFormAction(reportSlug, '?/updateStatus')}
+								use:enhance={enhanceReportForm(reportSlug, {
+									onSubmit: () => {
+										statusUpdating = true;
+										statusMenuOpen = false;
+									},
+									onSuccess: () => {
+										const undo = undoStatus;
+										undoStatus = null;
+										if (undo) {
+											toast.success(`${issue.id} marked as fixed`, {
+												duration: 5000,
+												action: {
+													label: 'Undo',
+													onClick: () => submitStatus(undo)
+												}
+											});
+										} else {
+											toast.success(`${issue.id} status updated`, { duration: 2500 });
+										}
+									},
+									onFailure: (data) => {
+										toast.error(data?.message ?? 'Failed to update status');
+									},
+									onError: () => {
+										toast.error('An unexpected error occurred while updating status');
+									},
+									onFinally: () => {
 										statusUpdating = false;
 										statusMenuOpen = false;
-									};
-									const loadingTimeout = setTimeout(() => {
-										statusUpdating = false;
-										toast.error('Status update timed out. Try again.');
-									}, 20_000);
-
-									return async ({ result }) => {
-										try {
-											await applyAction(result);
-											if (result.type === 'success') {
-												const undo = undoStatus;
-												undoStatus = null;
-												if (undo) {
-													toast.success(`${issue.id} marked as fixed`, {
-														duration: 5000,
-														action: {
-															label: 'Undo',
-															onClick: () => submitStatus(undo)
-														}
-													});
-												} else {
-													toast.success(`${issue.id} status updated`, { duration: 2500 });
-												}
-											} else if (result.type === 'failure') {
-												toast.error(
-													(result.data as { message?: string })?.message ??
-														'Failed to update status'
-												);
-											} else if (result.type === 'error') {
-												toast.error('An unexpected error occurred while updating status');
-											}
-										} catch {
-											toast.error('An unexpected error occurred while updating status');
-										} finally {
-											clearTimeout(loadingTimeout);
-											resetLoading();
-										}
-									};
-								}}
+									}
+								})}
 							>
 								<input type="hidden" name="id" value={issue.id} />
 								<input type="hidden" name="status" value={issue.status} />
@@ -224,28 +207,6 @@
 								{/key}
 							</form>
 						</span>
-
-						{#if showQuickResolve}
-							<!-- svelte-ignore a11y_no_static_element_interactions -->
-							<!-- svelte-ignore a11y_click_events_have_key_events -->
-							<span
-								class="inline-flex"
-								role="presentation"
-								data-no-card-click
-								onclick={(event) => event.stopPropagation()}
-								onkeydown={(event) => event.stopPropagation()}
-							>
-								<button
-									type="button"
-									class="inline-flex size-7 items-center justify-center rounded-md border border-severity-low/20 bg-severity-low/6 text-severity-low transition-all duration-200 hover:bg-severity-low/15 hover:border-severity-low/40 disabled:opacity-50 shadow-sm"
-									title="Mark as fixed"
-									disabled={statusUpdating}
-									onclick={markFixed}
-								>
-									<CircleCheckIcon class="size-3.5" />
-								</button>
-							</span>
-						{/if}
 
 						<Badge variant="outline" class={AREA_BADGE_STYLE}>
 							{issue.area}

@@ -5,7 +5,42 @@ export type OpenTab = {
 
 const STORAGE_KEY = 'bug-report-open-tabs';
 
-export function loadOpenTabs(): OpenTab[] {
+let openTabsState: OpenTab[] = [];
+let tabsHydrated = false;
+let tabsVersion = 0;
+const tabListeners = new Set<() => void>();
+
+function notifyTabChange(): void {
+	tabsVersion += 1;
+	for (const listener of tabListeners) {
+		listener();
+	}
+}
+
+export function getTabsVersion(): number {
+	return tabsVersion;
+}
+
+export function subscribeOpenTabs(listener: () => void): () => void {
+	tabListeners.add(listener);
+	return () => tabListeners.delete(listener);
+}
+
+export function getOpenTabsState(): OpenTab[] {
+	return openTabsState;
+}
+
+export function hydrateOpenTabs(): void {
+	openTabsState = loadOpenTabsFromStorage();
+	tabsHydrated = true;
+	notifyTabChange();
+}
+
+export function areOpenTabsHydrated(): boolean {
+	return tabsHydrated;
+}
+
+function loadOpenTabsFromStorage(): OpenTab[] {
 	if (typeof localStorage === 'undefined') return [];
 
 	try {
@@ -23,9 +58,20 @@ export function loadOpenTabs(): OpenTab[] {
 	}
 }
 
+export function loadOpenTabs(): OpenTab[] {
+	if (!tabsHydrated) {
+		return loadOpenTabsFromStorage();
+	}
+	return openTabsState;
+}
+
 export function saveOpenTabs(tabs: OpenTab[]): void {
-	if (typeof localStorage === 'undefined') return;
-	localStorage.setItem(STORAGE_KEY, JSON.stringify(tabs));
+	openTabsState = tabs;
+	tabsHydrated = true;
+	if (typeof localStorage !== 'undefined') {
+		localStorage.setItem(STORAGE_KEY, JSON.stringify(tabs));
+	}
+	notifyTabChange();
 }
 
 export function upsertTab(tabs: OpenTab[], tab: OpenTab): OpenTab[] {

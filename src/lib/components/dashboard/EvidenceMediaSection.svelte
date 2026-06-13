@@ -22,6 +22,11 @@
 	import EvidenceLightbox from './EvidenceLightbox.svelte';
 	import { enhance } from '$app/forms';
 	import { toast } from 'svelte-sonner';
+	import {
+		enhanceReportForm,
+		getReportSlugContext,
+		reportFormAction
+	} from '$lib/report-forms.js';
 	import UploadIcon from '@lucide/svelte/icons/upload';
 	import LinkIcon from '@lucide/svelte/icons/link';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
@@ -49,6 +54,15 @@
 	let urlType = $state<'image' | 'video' | 'auto'>('auto');
 	let previewMedia = $state<EvidenceMedia | null>(null);
 	let lightboxOpen = $state(false);
+
+	const reportSlug = getReportSlugContext();
+
+	function syncIssueFromForm(data: { report?: { issues: Issue[] } } | null | undefined) {
+		if (!issue) return;
+		const issueId = issue.id;
+		const updated = data?.report?.issues.find((item) => item.id === issueId);
+		if (updated) issue = updated;
+	}
 
 	const isPending = $derived(mode === 'pending');
 	const attachedCount = $derived(
@@ -207,31 +221,20 @@
 
 					<form
 						method="POST"
-						action="?/removeEvidence"
+						action={reportFormAction(reportSlug, '?/removeEvidence')}
 						class="absolute top-2 right-2 opacity-0 transition-opacity group-hover:opacity-100"
-						use:enhance={() => {
-							return async ({ result, update }) => {
-								try {
-									await update();
-									if (result.type === 'success' && issue) {
-										const issueId = issue.id;
-										const report = (result.data as { report?: { issues: Issue[] } })?.report;
-										const updated = report?.issues.find((item) => item.id === issueId);
-										if (updated) issue = updated;
-										toast.success('Evidence removed');
-									} else if (result.type === 'failure') {
-										toast.error(
-											(result.data as { message?: string })?.message ??
-												'Failed to remove evidence'
-										);
-									} else if (result.type === 'error') {
-										toast.error('An unexpected error occurred while removing evidence');
-									}
-								} catch {
-									toast.error('An unexpected error occurred while removing evidence');
-								}
-							};
-						}}
+						use:enhance={enhanceReportForm(reportSlug, {
+							onSuccess: (data) => {
+								syncIssueFromForm(data);
+								toast.success('Evidence removed');
+							},
+							onFailure: (data) => {
+								toast.error(data?.message ?? 'Failed to remove evidence');
+							},
+							onError: () => {
+								toast.error('An unexpected error occurred while removing evidence');
+							}
+						})}
 					>
 						<input type="hidden" name="id" value={issue?.id} />
 						<input type="hidden" name="src" value={media.src} />
@@ -327,32 +330,27 @@
 	{:else}
 		<form
 			method="POST"
-			action="?/uploadEvidence"
+			action={reportFormAction(reportSlug, '?/uploadEvidence')}
 			enctype="multipart/form-data"
 			class="grid {ui.grid} rounded-md border border-border/60 {ui.cardPadding}"
-			use:enhance={() => {
-				uploading = true;
-				return async ({ result, update }) => {
-					try {
-						await update();
-						if (result.type === 'success' && issue) {
-							const issueId = issue.id;
-							const report = (result.data as { report?: { issues: Issue[] } })?.report;
-							const updated = report?.issues.find((item) => item.id === issueId);
-							if (updated) issue = updated;
-							toast.success('Evidence uploaded');
-						} else if (result.type === 'failure') {
-							toast.error(
-								(result.data as { message?: string })?.message ?? 'Failed to upload evidence'
-							);
-						} else if (result.type === 'error') {
-							toast.error('An unexpected error occurred while uploading evidence');
-						}
-					} finally {
-						uploading = false;
-					}
-				};
-			}}
+			use:enhance={enhanceReportForm(reportSlug, {
+				onSubmit: () => {
+					uploading = true;
+				},
+				onSuccess: (data) => {
+					syncIssueFromForm(data);
+					toast.success('Evidence uploaded');
+				},
+				onFailure: (data) => {
+					toast.error(data?.message ?? 'Failed to upload evidence');
+				},
+				onError: () => {
+					toast.error('An unexpected error occurred while uploading evidence');
+				},
+				onFinally: () => {
+					uploading = false;
+				}
+			})}
 		>
 			<input type="hidden" name="id" value={issue?.id} />
 			<div class={ui.field}>
@@ -383,34 +381,29 @@
 
 		<form
 			method="POST"
-			action="?/addEvidenceUrl"
+			action={reportFormAction(reportSlug, '?/addEvidenceUrl')}
 			class="grid {ui.grid} rounded-md border border-border/60 {ui.cardPadding}"
-			use:enhance={() => {
-				addingUrl = true;
-				return async ({ result, update }) => {
-					try {
-						await update();
-						if (result.type === 'success' && issue) {
-							const issueId = issue.id;
-							const report = (result.data as { report?: { issues: Issue[] } })?.report;
-							const updated = report?.issues.find((item) => item.id === issueId);
-							if (updated) issue = updated;
-							evidenceUrl = '';
-							evidenceCaption = '';
-							urlType = 'auto';
-							toast.success('Evidence link added');
-						} else if (result.type === 'failure') {
-							toast.error(
-								(result.data as { message?: string })?.message ?? 'Failed to add evidence URL'
-							);
-						} else if (result.type === 'error') {
-							toast.error('An unexpected error occurred while adding the evidence URL');
-						}
-					} finally {
-						addingUrl = false;
-					}
-				};
-			}}
+			use:enhance={enhanceReportForm(reportSlug, {
+				onSubmit: () => {
+					addingUrl = true;
+				},
+				onSuccess: (data) => {
+					syncIssueFromForm(data);
+					evidenceUrl = '';
+					evidenceCaption = '';
+					urlType = 'auto';
+					toast.success('Evidence link added');
+				},
+				onFailure: (data) => {
+					toast.error(data?.message ?? 'Failed to add evidence URL');
+				},
+				onError: () => {
+					toast.error('An unexpected error occurred while adding the evidence URL');
+				},
+				onFinally: () => {
+					addingUrl = false;
+				}
+			})}
 		>
 			<input type="hidden" name="id" value={issue?.id} />
 			{#if urlType !== 'auto'}

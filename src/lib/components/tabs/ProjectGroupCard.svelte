@@ -3,6 +3,8 @@
 	import { Card, CardContent } from '$lib/components/ui/card/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import ReportCard from './ReportCard.svelte';
+	import SortableList from '$lib/components/sortable/SortableList.svelte';
+	import DragHandle from '$lib/components/sortable/DragHandle.svelte';
 	import FolderTreeIcon from '@lucide/svelte/icons/folder-tree';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import { ui } from '$lib/ui-layout.js';
@@ -14,15 +16,47 @@
 		group,
 		onOpenReport,
 		onCreateReport,
+		onReorderReports,
 		groupsOnlyLayout = false,
+		sortable = false,
+		dragHandleAttrs = null,
 		class: className = ''
 	}: {
 		group: ProjectGroupDetail;
 		onOpenReport: (report: ReportSummary) => void;
 		onCreateReport?: () => void;
+		onReorderReports?: (slugs: string[]) => void | Promise<void>;
 		groupsOnlyLayout?: boolean;
+		sortable?: boolean;
+		dragHandleAttrs?: Record<string, unknown> | null;
 		class?: string;
 	} = $props();
+
+	let reports = $state<ReportSummary[]>([]);
+
+	$effect(() => {
+		reports = [...group.reports];
+	});
+
+	const reportGridClass = $derived(
+		cn(
+			'grid',
+			ui.gridLg,
+			groupsOnlyLayout
+				? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-[repeat(auto-fill,minmax(18rem,1fr))]'
+				: 'md:grid-cols-2 lg:grid-cols-3'
+		)
+	);
+
+	async function handleReportReorder(nextReports: ReportSummary[]) {
+		const previous = reports;
+		reports = nextReports;
+		try {
+			await onReorderReports?.(nextReports.map((report) => report.slug));
+		} catch {
+			reports = previous;
+		}
+	}
 </script>
 
 <Card class={cn('gap-0 overflow-hidden border-border bg-card/25 backdrop-blur-md py-0 shadow-sm', className)}>
@@ -30,16 +64,21 @@
 		<div
 			class="flex items-center justify-between gap-3 border-b border-border/40 {ui.cardHeader}"
 		>
-			<button
-				type="button"
-				class="group/title flex min-w-0 items-center gap-2 text-left hover:cursor-pointer"
-				onclick={() => goto(groupPath(group.slug))}
-			>
-				<FolderTreeIcon class="size-3.5 shrink-0 text-primary-muted group-hover/title:text-primary transition-colors" />
-				<h3 class="min-w-0 truncate text-sm font-semibold text-foreground/90 group-hover/title:text-primary transition-colors">
-					{group.title}
-				</h3>
-			</button>
+			<div class="flex min-w-0 items-center gap-2">
+				{#if sortable && dragHandleAttrs}
+					<DragHandle attributes={dragHandleAttrs} />
+				{/if}
+				<button
+					type="button"
+					class="group/title flex min-w-0 items-center gap-2 text-left hover:cursor-pointer"
+					onclick={() => goto(groupPath(group.slug))}
+				>
+					<FolderTreeIcon class="size-3.5 shrink-0 text-primary-muted group-hover/title:text-primary transition-colors" />
+					<h3 class="min-w-0 truncate text-sm font-semibold text-foreground/90 group-hover/title:text-primary transition-colors">
+						{group.title}
+					</h3>
+				</button>
+			</div>
 
 			{#if onCreateReport}
 				<Button
@@ -55,25 +94,35 @@
 			{/if}
 		</div>
 
-		{#if group.reports.length > 0}
+		{#if reports.length > 0}
 			<div class="{ui.cardPadding}">
-				<div
-					class={cn(
-						'grid',
-						ui.gridLg,
-						groupsOnlyLayout
-							? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-[repeat(auto-fill,minmax(18rem,1fr))]'
-							: 'md:grid-cols-2 lg:grid-cols-3'
-					)}
-				>
-					{#each group.reports as report (report.slug)}
-						<ReportCard
-							{report}
-							variant="nested"
-							onclick={() => onOpenReport(report)}
-						/>
-					{/each}
-				</div>
+				{#if sortable && onReorderReports}
+					<SortableList
+						items={reports}
+						getKey={(report) => report.slug}
+						class={reportGridClass}
+						onReorder={handleReportReorder}
+					>
+						{#snippet children(report, { dragHandleAttrs: reportDragHandleAttrs })}
+							<ReportCard
+								{report}
+								variant="nested"
+								dragHandleAttrs={reportDragHandleAttrs}
+								onclick={() => onOpenReport(report)}
+							/>
+						{/snippet}
+					</SortableList>
+				{:else}
+					<div class={reportGridClass}>
+						{#each reports as report (report.slug)}
+							<ReportCard
+								{report}
+								variant="nested"
+								onclick={() => onOpenReport(report)}
+							/>
+						{/each}
+					</div>
+				{/if}
 			</div>
 		{/if}
 	</CardContent>

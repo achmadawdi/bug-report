@@ -14,6 +14,11 @@ export {
 	getReportGroupSlug,
 	listReportsInGroup,
 	setReportGroupSlug,
+	appendReportSortOrder,
+	reorderProjectGroups,
+	reorderReportsInGroup,
+	reorderStandaloneReports,
+	getReportWorkflow,
 	getReportWorkflowStatus,
 	updateReportWorkflowStatus
 } from '$lib/server/db/repository.js';

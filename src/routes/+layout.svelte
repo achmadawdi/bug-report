@@ -3,6 +3,7 @@
 	import favicon from '$lib/assets/favicon.svg';
 	import { Toaster } from '$lib/components/ui/sonner/index.js';
 	import TabBar from '$lib/components/tabs/TabBar.svelte';
+	import ReportHost from '$lib/components/tabs/ReportHost.svelte';
 	import NavigationProgressBar from '$lib/components/NavigationProgressBar.svelte';
 	import { ModeWatcher } from 'mode-watcher';
 
@@ -25,6 +26,7 @@
 	<NavigationProgressBar />
 	<TabBar projects={data.projects} groups={data.groups} />
 	{@render children()}
+	<ReportHost />
 </div>
 
 <Toaster richColors closeButton position="bottom-left" class="z-[100]" />

@@ -4,9 +4,7 @@ import {
 	addIssue,
 	assignReportToGroup,
 	getReportGroupContext,
-	getWorkflowStatus,
-	listAllGroups,
-	reportExists,
+	getWorkflowInfo,
 	readReport,
 	removeEvidenceMedia,
 	saveEvidenceFile,
@@ -29,28 +27,36 @@ import {
 	reportMetaSchema,
 	testingSessionSchema,
 	statusSchema,
-	reportWorkflowStatusSchema
+	reportWorkflowStatusSchema,
+	workflowNoteSchema
 } from '$lib/types.js';
 import type { Actions, PageServerLoad } from './$types.js';
 
-export const load: PageServerLoad = async ({ params, url }) => {
-	if (!(await reportExists(params.report))) {
-		error(404, `Report "${params.report}" not found`);
-	}
+export const load: PageServerLoad = async ({ params, url, parent, depends }) => {
+	depends(`report:${params.report}`);
 
-	let report;
-	try {
-		report = await readReport(params.report);
-	} catch (err) {
-		console.error(`Failed to load report for "${params.report}":`, err);
+	const [{ groups }, reportResult, groupContext, workflow] = await Promise.all([
+		parent(),
+		readReport(params.report)
+			.then((report) => ({ ok: true as const, report }))
+			.catch((err: unknown) => ({ ok: false as const, err })),
+		getReportGroupContext(params.report, { skipExistsCheck: true }),
+		getWorkflowInfo(params.report)
+	]);
+
+	if (!reportResult.ok) {
+		const message = reportResult.err instanceof Error ? reportResult.err.message : '';
+		if (message.includes('not found')) {
+			error(404, `Report "${params.report}" not found`);
+		}
+
+		console.error(`Failed to load report for "${params.report}":`, reportResult.err);
 		error(500, 'Report data is invalid');
 	}
 
+	const report = reportResult.report;
 	const areas = mergeAreas([...new Set(report.issues.map((issue) => issue.area))]);
 	const initialFilters = parseFilters(url.searchParams, areas);
-	const groupContext = await getReportGroupContext(params.report);
-	const groups = await listAllGroups();
-	const workflowStatus = await getWorkflowStatus(params.report);
 
 	return {
 		report,
@@ -59,7 +65,8 @@ export const load: PageServerLoad = async ({ params, url }) => {
 		initialFilters,
 		groupContext,
 		groups,
-		workflowStatus
+		workflowStatus: workflow.status,
+		workflowNote: workflow.note
 	};
 };
 
@@ -314,12 +321,24 @@ export const actions: Actions = {
 			return fail(400, { message: 'Invalid report status.' });
 		}
 
+		let workflowNote: string | null = null;
+		if (status.data === 'resolved' || status.data === 'postponed') {
+			const note = workflowNoteSchema.safeParse(formData.get('workflowNote'));
+			if (!note.success) {
+				return fail(400, {
+					message: note.error.issues[0]?.message ?? 'Developer note is required.'
+				});
+			}
+			workflowNote = note.data;
+		}
+
 		try {
-			const workflowStatus = await setWorkflowStatus(params.report, status.data);
+			const workflow = await setWorkflowStatus(params.report, status.data, workflowNote);
 			return {
 				success: true,
 				message: `Report marked ${status.data}.`,
-				workflowStatus
+				workflowStatus: workflow.status,
+				workflowNote: workflow.note
 			};
 		} catch (err) {
 			return fail(500, {

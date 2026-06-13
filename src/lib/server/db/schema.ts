@@ -2,6 +2,7 @@ export const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS project_groups (
 	slug TEXT PRIMARY KEY,
 	title TEXT NOT NULL,
+	sort_order INTEGER NOT NULL DEFAULT 0,
 	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -11,6 +12,7 @@ CREATE TABLE IF NOT EXISTS reports (
 	group_slug TEXT REFERENCES project_groups (slug) ON DELETE SET NULL,
 	workflow_status TEXT NOT NULL DEFAULT 'open'
 		CHECK (workflow_status IN ('open', 'resolved', 'postponed')),
+	workflow_note TEXT,
 	type TEXT NOT NULL DEFAULT 'QA Testing Report'
 		CHECK (type IN ('QA Testing Report', 'Regression Report', 'Smoke Test Report', 'Bug Report')),
 	platform TEXT NOT NULL DEFAULT '',
@@ -22,6 +24,7 @@ CREATE TABLE IF NOT EXISTS reports (
 	test_scope TEXT NOT NULL DEFAULT '',
 	version TEXT NOT NULL DEFAULT '',
 	source_file TEXT NOT NULL DEFAULT '',
+	sort_order INTEGER NOT NULL DEFAULT 0,
 	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 	updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

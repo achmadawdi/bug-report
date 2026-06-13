@@ -331,6 +331,98 @@ BEGIN
 END $$
 `.trim();
 
+const ADD_WORKFLOW_NOTE_SQL = `
+DO $$
+BEGIN
+	IF to_regclass('public.reports') IS NOT NULL
+		AND NOT EXISTS (
+			SELECT 1
+			FROM information_schema.columns
+			WHERE table_schema = 'public'
+				AND table_name = 'reports'
+				AND column_name = 'workflow_note'
+		)
+	THEN
+		ALTER TABLE reports
+			ADD COLUMN workflow_note TEXT;
+	END IF;
+END $$
+`.trim();
+
+const ADD_SORT_ORDER_SQL = `
+DO $$
+BEGIN
+	IF to_regclass('public.project_groups') IS NOT NULL
+		AND NOT EXISTS (
+			SELECT 1
+			FROM information_schema.columns
+			WHERE table_schema = 'public'
+				AND table_name = 'project_groups'
+				AND column_name = 'sort_order'
+		)
+	THEN
+		ALTER TABLE project_groups
+			ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;
+	END IF;
+
+	IF to_regclass('public.reports') IS NOT NULL
+		AND NOT EXISTS (
+			SELECT 1
+			FROM information_schema.columns
+			WHERE table_schema = 'public'
+				AND table_name = 'reports'
+				AND column_name = 'sort_order'
+		)
+	THEN
+		ALTER TABLE reports
+			ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;
+	END IF;
+
+	IF to_regclass('public.project_groups') IS NOT NULL
+		AND EXISTS (
+			SELECT 1
+			FROM information_schema.columns
+			WHERE table_schema = 'public'
+				AND table_name = 'project_groups'
+				AND column_name = 'sort_order'
+		)
+	THEN
+		WITH ranked AS (
+			SELECT slug, ROW_NUMBER() OVER (ORDER BY title) - 1 AS rn
+			FROM project_groups
+		)
+		UPDATE project_groups AS g
+		SET sort_order = ranked.rn
+		FROM ranked
+		WHERE g.slug = ranked.slug;
+	END IF;
+
+	IF to_regclass('public.reports') IS NOT NULL
+		AND EXISTS (
+			SELECT 1
+			FROM information_schema.columns
+			WHERE table_schema = 'public'
+				AND table_name = 'reports'
+				AND column_name = 'sort_order'
+		)
+	THEN
+		WITH ranked AS (
+			SELECT
+				slug,
+				ROW_NUMBER() OVER (
+					PARTITION BY group_slug
+					ORDER BY title
+				) - 1 AS rn
+			FROM reports
+		)
+		UPDATE reports AS r
+		SET sort_order = ranked.rn
+		FROM ranked
+		WHERE r.slug = ranked.slug;
+	END IF;
+END $$
+`.trim();
+
 const ADD_PROJECTS_WORKFLOW_STATUS_CHECK_SQL = `
 DO $$
 BEGIN
@@ -604,6 +696,14 @@ async function executeMigrations(): Promise<void> {
 
 	await runMigrationStep(sql, '2026-06-13_repair_issues_foreign_key', async () => {
 		await sql.query(REPAIR_ISSUES_FOREIGN_KEY_SQL, []);
+	});
+
+	await runMigrationStep(sql, '2026-06-13_add_workflow_note', async () => {
+		await sql.query(ADD_WORKFLOW_NOTE_SQL, []);
+	});
+
+	await runMigrationStep(sql, '2026-06-13_add_sort_order', async () => {
+		await sql.query(ADD_SORT_ORDER_SQL, []);
 	});
 
 	await verifyReportSchema(sql);

@@ -34,6 +34,11 @@ import {
 	getReportGroupSlug,
 	listReportsInGroup,
 	setReportGroupSlug as setReportGroupSlugDb,
+	appendReportSortOrder,
+	reorderProjectGroups,
+	reorderReportsInGroup,
+	reorderStandaloneReports,
+	getReportWorkflow,
 	getReportWorkflowStatus,
 	updateReportWorkflowStatus
 } from '$lib/server/storage/index.js';
@@ -222,7 +227,7 @@ export async function listReports(): Promise<ReportSummary[]> {
 		if (summary) reports.push(summary);
 	}
 
-	return reports.sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }));
+	return reports;
 }
 
 export async function listStandaloneReports(): Promise<ReportSummary[]> {
@@ -235,7 +240,7 @@ export async function listStandaloneReports(): Promise<ReportSummary[]> {
 		if (summary) reports.push(summary);
 	}
 
-	return reports.sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }));
+	return reports;
 }
 
 export async function listGroups(): Promise<ProjectGroupSummary[]> {
@@ -271,6 +276,22 @@ export async function listGroupsWithReports(): Promise<ProjectGroupDetail[]> {
 	}
 
 	return details;
+}
+
+export async function reorderGroups(orderedSlugs: string[]): Promise<void> {
+	await ensureDbReady();
+	await reorderProjectGroups(orderedSlugs);
+}
+
+export async function reorderGroupReports(groupSlug: string, orderedSlugs: string[]): Promise<void> {
+	validateSlug(groupSlug);
+	await ensureDbReady();
+	await reorderReportsInGroup(groupSlug, orderedSlugs);
+}
+
+export async function reorderStandaloneReportOrder(orderedSlugs: string[]): Promise<void> {
+	await ensureDbReady();
+	await reorderStandaloneReports(orderedSlugs);
 }
 
 export async function getGroupWithReports(groupSlug: string): Promise<ProjectGroupDetail | null> {
@@ -358,11 +379,14 @@ export async function listAllGroups(): Promise<ProjectGroupSummary[]> {
 	return listGroups();
 }
 
-export async function getReportGroupContext(reportSlug: string): Promise<{
+export async function getReportGroupContext(
+	reportSlug: string,
+	options?: { skipExistsCheck?: boolean }
+): Promise<{
 	group: ProjectGroupSummary | null;
 	siblingReports: ReportSummary[];
 } | null> {
-	if (!(await reportExists(reportSlug))) return null;
+	if (!options?.skipExistsCheck && !(await reportExists(reportSlug))) return null;
 
 	const groupSlug = await getReportGroupSlug(reportSlug);
 	if (!groupSlug) {
@@ -406,6 +430,8 @@ export async function createReport(name: string, groupSlug?: string | null): Pro
 
 	if (groupSlug) {
 		await setReportGroupSlugDb(slug, groupSlug);
+	} else {
+		await appendReportSortOrder(slug);
 	}
 
 	const summary = await readReportSummary(slug);
@@ -466,13 +492,22 @@ export async function getWorkflowStatus(report: string): Promise<ReportWorkflowS
 	return getReportWorkflowStatus(report);
 }
 
-export async function setWorkflowStatus(
-	report: string,
-	status: ReportWorkflowStatus
-): Promise<ReportWorkflowStatus> {
+export async function getWorkflowInfo(
+	report: string
+): Promise<{ status: ReportWorkflowStatus; note: string | null }> {
 	validateSlug(report);
 	await ensureDbReady();
-	return updateReportWorkflowStatus(report, status);
+	return getReportWorkflow(report);
+}
+
+export async function setWorkflowStatus(
+	report: string,
+	status: ReportWorkflowStatus,
+	note: string | null = null
+): Promise<{ status: ReportWorkflowStatus; note: string | null }> {
+	validateSlug(report);
+	await ensureDbReady();
+	return updateReportWorkflowStatus(report, status, note);
 }
 
 export async function importReport(

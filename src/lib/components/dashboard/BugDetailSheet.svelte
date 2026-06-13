@@ -15,6 +15,11 @@
 	import { cn } from '$lib/utils.js';
 	import { enhance } from '$app/forms';
 	import { toast } from 'svelte-sonner';
+	import {
+		enhanceReportForm,
+		getReportSlugContext,
+		reportFormAction
+	} from '$lib/report-forms.js';
 	import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
 	import { isResolvedStatus } from '$lib/constants.js';
 
@@ -31,6 +36,7 @@
 	let saving = $state(false);
 	let markingFixed = $state(false);
 
+	const reportSlug = getReportSlugContext();
 	const canMarkFixed = $derived(issue ? !isResolvedStatus(issue.status) : false);
 </script>
 
@@ -49,29 +55,26 @@
 				<form
 					id="update-issue-form"
 					method="POST"
-					action="?/updateIssue"
+					action={reportFormAction(reportSlug, '?/updateIssue')}
 					class="contents"
-					use:enhance={() => {
-						saving = true;
-						return async ({ result, update }) => {
-							try {
-								await update();
-								if (result.type === 'success') {
-									toast.success(`${bug.id} updated`);
-									open = false;
-								} else if (result.type === 'failure') {
-									toast.error(
-										(result.data as { message?: string })?.message ??
-											'Failed to update issue'
-									);
-								} else if (result.type === 'error') {
-									toast.error('An unexpected error occurred while updating the issue');
-								}
-							} finally {
-								saving = false;
-							}
-						};
-					}}
+					use:enhance={enhanceReportForm(reportSlug, {
+						onSubmit: () => {
+							saving = true;
+						},
+						onSuccess: () => {
+							toast.success(`${bug.id} updated`);
+							open = false;
+						},
+						onFailure: (data) => {
+							toast.error(data?.message ?? 'Failed to update issue');
+						},
+						onError: () => {
+							toast.error('An unexpected error occurred while updating the issue');
+						},
+						onFinally: () => {
+							saving = false;
+						}
+					})}
 				>
 					<input type="hidden" name="id" value={bug.id} />
 				</form>
@@ -86,26 +89,22 @@
 					{#if canMarkFixed}
 						<form
 							method="POST"
-							action="?/updateStatus"
-							use:enhance={() => {
-								markingFixed = true;
-								return async ({ result, update }) => {
-									try {
-										await update();
-										if (result.type === 'success') {
-											toast.success(`${bug.id} marked as fixed`);
-											open = false;
-										} else if (result.type === 'failure') {
-											toast.error(
-												(result.data as { message?: string })?.message ??
-													'Failed to update status'
-											);
-										}
-									} finally {
-										markingFixed = false;
-									}
-								};
-							}}
+							action={reportFormAction(reportSlug, '?/updateStatus')}
+							use:enhance={enhanceReportForm(reportSlug, {
+								onSubmit: () => {
+									markingFixed = true;
+								},
+								onSuccess: () => {
+									toast.success(`${bug.id} marked as fixed`);
+									open = false;
+								},
+								onFailure: (data) => {
+									toast.error(data?.message ?? 'Failed to update status');
+								},
+								onFinally: () => {
+									markingFixed = false;
+								}
+							})}
 						>
 							<input type="hidden" name="id" value={bug.id} />
 							<input type="hidden" name="status" value="fixed" />

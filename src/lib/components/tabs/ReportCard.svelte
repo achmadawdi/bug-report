@@ -18,15 +18,18 @@
 		PROJECT_WORKFLOW_CARD_STYLES
 	} from '$lib/constants.js';
 	import { cn } from '$lib/utils.js';
+	import DragHandle from '$lib/components/sortable/DragHandle.svelte';
 
 	let {
 		report,
 		onclick,
-		variant = 'default'
+		variant = 'default',
+		dragHandleAttrs = null
 	}: {
 		report: ReportSummary;
 		onclick: () => void;
 		variant?: 'default' | 'nested';
+		dragHandleAttrs?: Record<string, unknown> | null;
 	} = $props();
 
 	const meta = $derived(
@@ -63,6 +66,9 @@
 	<Card class={cn('gap-0 py-0 transition-colors', surfaceStyle)}>
 		<div class={cn('flex flex-col gap-2', cardPadding)}>
 			<div class="flex items-start gap-2.5">
+				{#if dragHandleAttrs}
+					<DragHandle attributes={dragHandleAttrs} class="mt-0.5" />
+				{/if}
 				<div
 					class={cn(
 						'flex shrink-0 items-center justify-center rounded-md border p-1 transition-colors',
