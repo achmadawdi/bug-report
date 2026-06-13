@@ -45,11 +45,12 @@
 	const surfaceStyle = $derived(
 		isOpen
 			? isNested
-				? 'border-border-subtle bg-secondary/20 hover:border-primary-muted/40 hover:bg-card-hover'
+				? 'border-border/60 bg-card/45 hover:border-primary-muted/40 hover:bg-card-hover/90 hover:shadow-xs backdrop-blur-md'
 				: 'border-border bg-card/65 hover:border-primary/40 hover:bg-card-hover hover:shadow-sm backdrop-blur-md'
 			: PROJECT_WORKFLOW_CARD_STYLES[report.workflowStatus]
 	);
-	const contentGap = $derived(isNested ? 'gap-2' : ui.gridLg);
+	const cardPadding = $derived(isNested ? 'px-3 py-4' : 'px-4 py-4');
+	const iconSize = $derived(isNested ? 'size-9' : 'size-10');
 </script>
 
 <button
@@ -59,41 +60,27 @@
 	onpointerenter={() => preloadRoute(reportPath(report.slug))}
 	onfocus={() => preloadRoute(reportPath(report.slug))}
 >
-	<Card
-		class={cn('h-full gap-0 py-0 transition-colors', surfaceStyle)}
-	>
-		<div
-			class={cn(
-				'flex',
-				contentGap,
-				isNested ? 'p-2.5' : ui.cardPadding
-			)}
-		>
-			<div
-				class={cn(
-					'flex shrink-0 items-center justify-center rounded-md border transition-colors',
-					isResolved
-						? 'border-border-subtle bg-surface-subtle/50 text-muted-foreground/60'
-						: 'border-border bg-secondary/30 text-muted-foreground group-hover:border-primary-muted/40 group-hover:bg-primary-surface/30 group-hover:text-primary',
-					isNested ? 'size-8' : 'size-10'
-				)}
-			>
-				<FolderKanbanIcon class={isNested ? 'size-3.5' : 'size-5'} />
-			</div>
+	<Card class={cn('gap-0 py-0 transition-colors', surfaceStyle)}>
+		<div class={cn('flex flex-col gap-2', cardPadding)}>
+			<div class="flex items-start gap-2.5">
+				<div
+					class={cn(
+						'flex shrink-0 items-center justify-center rounded-md border p-1 transition-colors',
+						isResolved
+							? 'border-border-subtle bg-surface-subtle/50 text-muted-foreground/60'
+							: 'border-border bg-secondary/30 text-muted-foreground group-hover:border-primary-muted/40 group-hover:bg-primary-surface/30 group-hover:text-primary',
+						iconSize
+					)}
+				>
+					<FolderKanbanIcon class="size-full" />
+				</div>
 
-			<div class={cn('flex min-w-0 flex-1 flex-col', contentGap)}>
-				<div class="flex items-start justify-between gap-2">
+				<div class="flex min-w-0 flex-1 items-start justify-between gap-2">
 					<div class="min-w-0 space-y-0.5">
-						{#if variant === 'default'}
-							<p class="font-mono {ui.sectionTitle}">
-								{report.slug}
-							</p>
-						{/if}
 						<h3
 							class={cn(
-								'line-clamp-2 leading-snug font-semibold',
-								isNested ? 'text-sm' : 'text-sm sm:text-base',
-								isResolved && 'font-medium text-muted-foreground'
+								'line-clamp-2 text-sm leading-snug font-medium',
+								isResolved && 'text-muted-foreground'
 							)}
 						>
 							{report.title}
@@ -118,7 +105,9 @@
 						)}
 					/>
 				</div>
+			</div>
 
+			<div class="flex flex-col gap-2 border-t border-border/40 pt-2">
 				<div class={cn(ui.badgeRow, isNested && 'gap-1.5')}>
 					{#if !isOpen}
 						<Badge
@@ -135,7 +124,7 @@
 						variant="secondary"
 						class={cn('gap-1', badgeSize, isMuted && mutedBadge)}
 					>
-						<BugIcon class={isNested ? 'size-3' : ''} />
+						<BugIcon class={isNested ? 'size-3' : 'size-3.5'} />
 						{report.issueCount} total
 					</Badge>
 					{#if report.openCount > 0 && !isResolved}
@@ -145,7 +134,7 @@
 					{/if}
 					{#if report.criticalCount > 0 && !isResolved}
 						<Badge variant="destructive" class={cn('gap-1', badgeSize)}>
-							<AlertTriangleIcon class={isNested ? 'size-3' : ''} />
+							<AlertTriangleIcon class={isNested ? 'size-3' : 'size-3.5'} />
 							{report.criticalCount} critical
 						</Badge>
 					{/if}
@@ -160,7 +149,7 @@
 									: 'border-severity-low/30 text-severity-low'
 							)}
 						>
-							<CircleCheckIcon class={isNested ? 'size-3' : ''} />
+							<CircleCheckIcon class={isNested ? 'size-3' : 'size-3.5'} />
 							{report.fixedCount} fixed
 						</Badge>
 					{/if}
@@ -171,7 +160,7 @@
 						value={report.resolvedCount}
 						max={report.issueCount}
 						tone={isMuted ? 'muted' : 'default'}
-						class={isNested ? 'space-y-0.5' : ''}
+						size={isNested ? 'sm' : 'default'}
 					/>
 				{/if}
 			</div>
