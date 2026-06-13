@@ -4,6 +4,7 @@
 	import { reportPath } from '$lib/routes.js';
 	import { saveLastVisitedInGroup } from '$lib/groups.js';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import { Card, CardContent } from '$lib/components/ui/card/index.js';
 	import {
 		Select,
 		SelectContent,
@@ -77,57 +78,64 @@
 	}
 </script>
 
-<div class="flex flex-wrap items-center gap-2">
-	{#if useDropdown}
-		<Select
-			type="single"
-			value={currentSlug}
-			onValueChange={(value) => {
-				if (value) navigateTo(value);
-			}}
-		>
-			<SelectTrigger class="h-8 min-w-[200px] bg-background text-sm">
-				{reports.find((r) => r.slug === currentSlug)?.title ?? currentSlug}
-			</SelectTrigger>
-			<SelectContent>
+<Card class="gap-0 border-border bg-card/25 py-0 shadow-sm backdrop-blur-md">
+	<CardContent class="flex flex-wrap items-center gap-2 p-3">
+		{#if useDropdown}
+			<Select
+				type="single"
+				value={currentSlug}
+				onValueChange={(value) => {
+					if (value) navigateTo(value);
+				}}
+			>
+				<SelectTrigger class="h-8 min-w-[200px] bg-background text-sm">
+					{reports.find((r) => r.slug === currentSlug)?.title ?? currentSlug}
+				</SelectTrigger>
+				<SelectContent>
+					{#each reports as report (report.slug)}
+						<SelectItem value={report.slug}>{report.title}</SelectItem>
+					{/each}
+				</SelectContent>
+			</Select>
+		{:else}
+			<div class="flex flex-wrap items-center gap-1">
 				{#each reports as report (report.slug)}
-					<SelectItem value={report.slug}>{report.title}</SelectItem>
+					<Button
+						size="sm"
+						variant="ghost"
+						class={cn(
+							'h-8 rounded-md text-xs',
+							report.slug === currentSlug
+								? 'bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary dark:bg-primary/10 dark:hover:bg-primary/15'
+								: 'text-muted-foreground hover:bg-muted/40 hover:text-foreground'
+						)}
+						onclick={() => navigateTo(report.slug)}
+					>
+						{reportLabel(report)}
+					</Button>
 				{/each}
-			</SelectContent>
-		</Select>
-	{:else}
-		<div class="flex flex-wrap items-center gap-1">
-			{#each reports as report (report.slug)}
-				<Button
-					size="sm"
-					variant={report.slug === currentSlug ? 'default' : 'outline'}
-					class={cn('h-8 text-xs', report.slug !== currentSlug && 'text-muted-foreground')}
-					onclick={() => navigateTo(report.slug)}
-				>
-					{reportLabel(report)}
-				</Button>
-			{/each}
-		</div>
-	{/if}
+			</div>
+		{/if}
 
-	<div class="ml-auto flex items-center gap-1">
-		<Button
-			size="icon-sm"
-			variant="outline"
-			class="size-8"
-			aria-label="Previous report"
-			onclick={navigatePrev}
-		>
-			<ChevronLeftIcon class="size-4" />
-		</Button>
-		<Button
-			size="icon-sm"
-			variant="outline"
-			class="size-8"
-			aria-label="Next report"
-			onclick={navigateNext}
-		>
-			<ChevronRightIcon class="size-4" />
-		</Button>
-	</div>
-</div>
+		<div class="ml-auto flex items-center gap-1">
+			<Button
+				size="icon-sm"
+				variant="outline"
+				class="size-8"
+				aria-label="Previous report"
+				onclick={navigatePrev}
+			>
+				<ChevronLeftIcon class="size-4" />
+			</Button>
+			<Button
+				size="icon-sm"
+				variant="outline"
+				class="size-8"
+				aria-label="Next report"
+				onclick={navigateNext}
+			>
+				<ChevronRightIcon class="size-4" />
+			</Button>
+		</div>
+	</CardContent>
+</Card>

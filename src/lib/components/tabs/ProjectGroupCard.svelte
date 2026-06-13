@@ -14,11 +14,13 @@
 		group,
 		onOpenReport,
 		onCreateReport,
+		groupsOnlyLayout = false,
 		class: className = ''
 	}: {
 		group: ProjectGroupDetail;
 		onOpenReport: (report: ReportSummary) => void;
 		onCreateReport?: () => void;
+		groupsOnlyLayout?: boolean;
 		class?: string;
 	} = $props();
 </script>
@@ -55,7 +57,15 @@
 
 		{#if group.reports.length > 0}
 			<div class="{ui.cardPadding}">
-				<div class="grid {ui.gridLg} md:grid-cols-2 lg:grid-cols-3">
+				<div
+					class={cn(
+						'grid',
+						ui.gridLg,
+						groupsOnlyLayout
+							? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-[repeat(auto-fill,minmax(18rem,1fr))]'
+							: 'md:grid-cols-2 lg:grid-cols-3'
+					)}
+				>
 					{#each group.reports as report (report.slug)}
 						<ReportCard
 							{report}

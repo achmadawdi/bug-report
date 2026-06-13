@@ -175,61 +175,73 @@
 		/>
 	{/if}
 
-	<ReportHeader report={report.report} />
-	<MetadataGrid
-		report={report.report}
-		testing_session={report.testing_session}
-		groups={data.groups}
-		currentGroupSlug={groupContext?.group?.slug ?? null}
-		currentReportSlug={reportSlug}
-		relatedReports={groupContext?.siblingReports ?? []}
-		{workflowStatus}
-		onExportJson={exportFilteredJson}
-		onExportPdf={exportPdf}
-	/>
+	<Card class="gap-0 overflow-hidden border-border bg-card/25 py-0 shadow-sm backdrop-blur-md">
+		<CardContent class="flex flex-col gap-0 p-0">
+			<div class="px-4 py-4 md:px-6 md:py-6">
+				<ReportHeader report={report.report} />
+			</div>
 
-	<div class="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
-		<Sidebar {report} onViewChange={setView} currentView={filters.view} />
-
-		<main class="flex flex-col gap-4">
-			<Toolbar
-				bind:filters
-				bind:searchInput
-				areas={data.areas}
-				{severityCounts}
-				filteredCount={filteredIssues.length}
-				totalCount={report.issues.length}
+			<MetadataGrid
+				embedded
+				report={report.report}
+				testing_session={report.testing_session}
+				groups={data.groups}
+				currentGroupSlug={groupContext?.group?.slug ?? null}
+				currentReportSlug={reportSlug}
+				relatedReports={groupContext?.siblingReports ?? []}
+				{workflowStatus}
 				onExportJson={exportFilteredJson}
 				onExportPdf={exportPdf}
-				onAdd={() => (addOpen = true)}
-				onClearFilters={handleClearFilters}
 			/>
 
-			{#if filteredIssues.length === 0}
-				<Card class="border-dashed border-border bg-card/50">
-					<CardContent class="flex flex-col items-center gap-4 py-12 text-center">
-						<SearchXIcon class="size-10 text-muted-foreground" />
-						<div>
-							<p class="font-semibold">No bugs match your filters</p>
-							<p class="text-sm text-muted-foreground">
-								Try clearing search or changing severity, area, or view filters.
-							</p>
-						</div>
-					</CardContent>
-				</Card>
-			{:else}
-				<section class="grid {ui.grid}">
-					{#each filteredIssues as issue (issue.id)}
-						<div class={isResolvedStatus(issue.status) && filters.view === 'all'
-							? 'opacity-60'
-							: ''}>
-							<BugCard {issue} onclick={() => openIssue(issue)} />
-						</div>
-					{/each}
-				</section>
-			{/if}
-		</main>
-	</div>
+			<div
+				class="grid gap-4 border-t border-border/60 px-3 py-3 md:px-6 md:py-4 md:pb-6 xl:grid-cols-[320px_minmax(0,1fr)] xl:gap-6"
+			>
+				<Sidebar {report} onViewChange={setView} currentView={filters.view} />
+
+				<main class="order-1 flex min-w-0 flex-col gap-3 md:gap-4 xl:order-none">
+					<Toolbar
+						bind:filters
+						bind:searchInput
+						areas={data.areas}
+						{severityCounts}
+						filteredCount={filteredIssues.length}
+						totalCount={report.issues.length}
+						onExportJson={exportFilteredJson}
+						onExportPdf={exportPdf}
+						onAdd={() => (addOpen = true)}
+						onClearFilters={handleClearFilters}
+					/>
+
+					{#if filteredIssues.length === 0}
+						<Card class="border-dashed border-border bg-card/50">
+							<CardContent class="flex flex-col items-center gap-4 py-12 text-center">
+								<SearchXIcon class="size-10 text-muted-foreground" />
+								<div>
+									<p class="font-semibold">No bugs match your filters</p>
+									<p class="text-sm text-muted-foreground">
+										Try clearing search or changing severity, area, or view filters.
+									</p>
+								</div>
+							</CardContent>
+						</Card>
+					{:else}
+						<section class="grid {ui.grid}">
+							{#each filteredIssues as issue (issue.id)}
+								<div
+									class={isResolvedStatus(issue.status) && filters.view === 'all'
+										? 'opacity-60'
+										: ''}
+								>
+									<BugCard {issue} onclick={() => openIssue(issue)} />
+								</div>
+							{/each}
+						</section>
+					{/if}
+				</main>
+			</div>
+		</CardContent>
+	</Card>
 
 	<footer class="border-t border-border pt-4 text-sm text-muted-foreground">
 		<p>

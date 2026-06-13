@@ -16,11 +16,13 @@
 	let {
 		summary,
 		onViewChange,
-		currentView = 'active'
+		currentView = 'active',
+		class: className = ''
 	}: {
 		summary: ReportSummary;
 		onViewChange?: (view: FilterView) => void;
 		currentView?: FilterView;
+		class?: string;
 	} = $props();
 
 	const severityTotal = $derived(
@@ -36,7 +38,7 @@
 	}
 </script>
 
-<Card size="sm" class={cn(ui.cardPanel, 'border-border/60 bg-card/45 backdrop-blur-md shadow-sm')}>
+<Card size="sm" class={cn(ui.cardPanel, 'border-border/60 bg-card/45 backdrop-blur-md shadow-sm', className)}>
 	<CardHeader class={ui.cardHeader}>
 		<CardTitle class="flex items-center gap-2 text-sm font-semibold">
 			<BarChart3Icon class="size-4 text-primary-muted" />
