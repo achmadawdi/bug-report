@@ -92,7 +92,7 @@ export async function ensureReady(): Promise<void> {
 export async function listReportSlugs(): Promise<string[]> {
 	await ensureReady();
 	const sql = getSql();
-	const rows = (await sql`SELECT slug FROM reports ORDER BY slug`) as { slug: string }[];
+	const rows = (await sql`SELECT slug FROM reports ORDER BY sort_order, title`) as { slug: string }[];
 	return rows.map((row) => row.slug);
 }
 
@@ -406,7 +406,7 @@ export async function listProjectGroups(): Promise<ProjectGroupRow[]> {
 	return (await sql`
 		SELECT slug, title
 		FROM project_groups
-		ORDER BY title
+		ORDER BY sort_order, title
 	`) as ProjectGroupRow[];
 }
 
@@ -423,8 +423,12 @@ export async function createProjectGroup(slug: string, title: string): Promise<P
 	await ensureReady();
 	const sql = getSql();
 	const rows = (await sql`
-		INSERT INTO project_groups (slug, title)
-		VALUES (${slug}, ${title})
+		INSERT INTO project_groups (slug, title, sort_order)
+		VALUES (
+			${slug},
+			${title},
+			COALESCE((SELECT MAX(sort_order) + 1 FROM project_groups), 0)
+		)
 		RETURNING slug, title
 	`) as ProjectGroupRow[];
 	return rows[0];
@@ -455,7 +459,7 @@ export async function listProjectGroupStats(): Promise<ProjectGroupStatsRow[]> {
 		LEFT JOIN reports r ON r.group_slug = g.slug
 		LEFT JOIN issues i ON i.report_slug = r.slug
 		GROUP BY g.slug, g.title
-		ORDER BY g.title
+		ORDER BY g.sort_order, g.title
 	`) as ProjectGroupStatsRow[];
 }
 
@@ -472,7 +476,7 @@ export async function listReportsInGroup(groupSlug: string): Promise<string[]> {
 	await ensureReady();
 	const sql = getSql();
 	const rows = (await sql`
-		SELECT slug FROM reports WHERE group_slug = ${groupSlug} ORDER BY title
+		SELECT slug FROM reports WHERE group_slug = ${groupSlug} ORDER BY sort_order, title
 	`) as { slug: string }[];
 	return rows.map((row) => row.slug);
 }
@@ -503,52 +507,187 @@ export async function setReportGroupSlug(
 	if (rows.length === 0) {
 		throw new Error(`Report "${reportSlug}" not found`);
 	}
+
+	await appendReportSortOrder(reportSlug);
+}
+
+async function getMaxReportSortOrder(groupSlug: string | null): Promise<number> {
+	await ensureReady();
+	const sql = getSql();
+	const rows = groupSlug
+		? ((await sql`
+				SELECT COALESCE(MAX(sort_order), -1)::int AS max_order
+				FROM reports
+				WHERE group_slug = ${groupSlug}
+			`) as { max_order: number }[])
+		: ((await sql`
+				SELECT COALESCE(MAX(sort_order), -1)::int AS max_order
+				FROM reports
+				WHERE group_slug IS NULL
+			`) as { max_order: number }[]);
+	return rows[0]?.max_order ?? -1;
+}
+
+export async function appendReportSortOrder(reportSlug: string): Promise<void> {
+	await ensureReady();
+	const sql = getSql();
+	const groupSlug = await getReportGroupSlug(reportSlug);
+	const nextOrder = (await getMaxReportSortOrder(groupSlug)) + 1;
+	await sql`
+		UPDATE reports
+		SET sort_order = ${nextOrder}, updated_at = NOW()
+		WHERE slug = ${reportSlug}
+	`;
+}
+
+export async function reorderProjectGroups(orderedSlugs: string[]): Promise<void> {
+	if (orderedSlugs.length === 0) return;
+
+	await ensureReady();
+	const sql = getSql();
+	const uniqueSlugs = [...new Set(orderedSlugs)];
+	const rows = (await sql`
+		SELECT slug
+		FROM project_groups
+		WHERE slug = ANY(${uniqueSlugs})
+	`) as { slug: string }[];
+
+	if (rows.length !== uniqueSlugs.length) {
+		throw new Error('One or more groups were not found.');
+	}
+
+	await sql.transaction((txn) =>
+		uniqueSlugs.map((slug, index) =>
+			txn`UPDATE project_groups SET sort_order = ${index} WHERE slug = ${slug}`
+		)
+	);
+}
+
+export async function reorderReportsInGroup(
+	groupSlug: string,
+	orderedSlugs: string[]
+): Promise<void> {
+	if (orderedSlugs.length === 0) return;
+
+	await ensureReady();
+	const sql = getSql();
+
+	const groupRows = (await sql`
+		SELECT 1 FROM project_groups WHERE slug = ${groupSlug} LIMIT 1
+	`) as unknown[];
+	if (groupRows.length === 0) {
+		throw new Error(`Group "${groupSlug}" not found`);
+	}
+
+	const uniqueSlugs = [...new Set(orderedSlugs)];
+	const rows = (await sql`
+		SELECT slug
+		FROM reports
+		WHERE group_slug = ${groupSlug}
+			AND slug = ANY(${uniqueSlugs})
+	`) as { slug: string }[];
+
+	if (rows.length !== uniqueSlugs.length) {
+		throw new Error('One or more reports were not found in this group.');
+	}
+
+	await sql.transaction((txn) =>
+		uniqueSlugs.map((slug, index) =>
+			txn`UPDATE reports SET sort_order = ${index}, updated_at = NOW() WHERE slug = ${slug}`
+		)
+	);
+}
+
+export async function reorderStandaloneReports(orderedSlugs: string[]): Promise<void> {
+	if (orderedSlugs.length === 0) return;
+
+	await ensureReady();
+	const sql = getSql();
+	const uniqueSlugs = [...new Set(orderedSlugs)];
+	const rows = (await sql`
+		SELECT slug
+		FROM reports
+		WHERE group_slug IS NULL
+			AND slug = ANY(${uniqueSlugs})
+	`) as { slug: string }[];
+
+	if (rows.length !== uniqueSlugs.length) {
+		throw new Error('One or more standalone reports were not found.');
+	}
+
+	await sql.transaction((txn) =>
+		uniqueSlugs.map((slug, index) =>
+			txn`UPDATE reports SET sort_order = ${index}, updated_at = NOW() WHERE slug = ${slug}`
+		)
+	);
 }
 
 export async function listStandaloneReportSlugs(): Promise<string[]> {
 	await ensureReady();
 	const sql = getSql();
 	const rows = (await sql`
-		SELECT slug FROM reports WHERE group_slug IS NULL ORDER BY slug
+		SELECT slug FROM reports WHERE group_slug IS NULL ORDER BY sort_order, title
 	`) as { slug: string }[];
 	return rows.map((row) => row.slug);
 }
 
 export async function getReportWorkflowStatus(slug: string): Promise<ReportWorkflowStatus> {
+	const workflow = await getReportWorkflow(slug);
+	return workflow.status;
+}
+
+export type ReportWorkflow = {
+	status: ReportWorkflowStatus;
+	note: string | null;
+};
+
+export async function getReportWorkflow(slug: string): Promise<ReportWorkflow> {
 	await ensureReady();
 	const sql = getSql();
 	const rows = (await sql`
-		SELECT workflow_status FROM reports WHERE slug = ${slug}
-	`) as { workflow_status: string }[];
+		SELECT workflow_status, workflow_note
+		FROM reports
+		WHERE slug = ${slug}
+	`) as { workflow_status: string; workflow_note: string | null }[];
 
 	if (rows.length === 0) {
 		throw new Error(`Report "${slug}" not found`);
 	}
 
 	const status = rows[0].workflow_status;
-	if (status === 'open' || status === 'resolved' || status === 'postponed') {
-		return status;
-	}
+	const normalizedStatus =
+		status === 'open' || status === 'resolved' || status === 'postponed' ? status : 'open';
 
-	return 'open';
+	return {
+		status: normalizedStatus,
+		note: rows[0].workflow_note?.trim() || null
+	};
 }
 
 export async function updateReportWorkflowStatus(
 	slug: string,
-	status: ReportWorkflowStatus
-): Promise<ReportWorkflowStatus> {
+	status: ReportWorkflowStatus,
+	note: string | null = null
+): Promise<ReportWorkflow> {
 	await ensureReady();
 	const sql = getSql();
+	const workflowNote = status === 'open' ? null : note?.trim() || null;
 	const rows = (await sql`
 		UPDATE reports
-		SET workflow_status = ${status}, updated_at = NOW()
+		SET
+			workflow_status = ${status},
+			workflow_note = ${workflowNote},
+			updated_at = NOW()
 		WHERE slug = ${slug}
-		RETURNING workflow_status
-	`) as { workflow_status: ReportWorkflowStatus }[];
+		RETURNING workflow_status, workflow_note
+	`) as { workflow_status: ReportWorkflowStatus; workflow_note: string | null }[];
 
 	if (rows.length === 0) {
 		throw new Error(`Report "${slug}" not found`);
 	}
 
-	return rows[0].workflow_status;
+	return {
+		status: rows[0].workflow_status,
+		note: rows[0].workflow_note?.trim() || null
+	};
 }

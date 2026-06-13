@@ -17,6 +17,11 @@
 	import EvidenceMediaSection from './EvidenceMediaSection.svelte';
 	import { enhance } from '$app/forms';
 	import { toast } from 'svelte-sonner';
+	import {
+		enhanceReportForm,
+		getReportSlugContext,
+		reportFormAction
+	} from '$lib/report-forms.js';
 
 	let {
 		open = $bindable(false),
@@ -32,6 +37,8 @@
 	let createdIssue = $state<Issue | null>(null);
 	let pendingEvidence = $state<PendingEvidenceItem[]>([]);
 	let previousOpen = false;
+
+	const reportSlug = getReportSlugContext();
 
 	function createDraft(): IssueFormDraft {
 		return {
@@ -99,57 +106,54 @@
 				<form
 					id="add-issue-form"
 					method="POST"
-					action="?/addIssue"
+					action={reportFormAction(reportSlug, '?/addIssue')}
 					class="contents"
-					use:enhance={() => {
-						saving = true;
-						return async ({ result, update }) => {
-							try {
-								await update();
-								if (result.type === 'success') {
-									const report = (result.data as { report?: ReportView })?.report;
-									const created =
-										report?.issues.find((issue) => issue.id === nextId) ??
-										report?.issues.at(-1);
+					use:enhance={enhanceReportForm(reportSlug, {
+						onSubmit: () => {
+							saving = true;
+						},
+						onSuccess: async (data) => {
+							const report = data?.report as ReportView | undefined;
+							const created =
+								report?.issues.find((issue) => issue.id === nextId) ?? report?.issues.at(-1);
 
-									if (!created) {
-										toast.success('Bug added');
-										closeDialog();
-										return;
-									}
-
-									try {
-										const queued = [...pendingEvidence];
-										const withEvidence =
-											queued.length > 0
-												? await flushPendingEvidence(created.id, queued)
-												: null;
-
-										clearPendingEvidence();
-										createdIssue = structuredClone(withEvidence ?? created);
-										toast.success(
-											queued.length > 0 ? 'Bug added with evidence' : 'Bug added'
-										);
-									} catch (err) {
-										createdIssue = structuredClone(created);
-										toast.error(
-											err instanceof Error
-												? err.message
-												: 'Bug saved but some evidence failed to upload'
-										);
-									}
-								} else if (result.type === 'failure') {
-									toast.error(
-										(result.data as { message?: string })?.message ?? 'Failed to add bug'
-									);
-								} else if (result.type === 'error') {
-									toast.error('An unexpected error occurred while adding the bug');
-								}
-							} finally {
-								saving = false;
+							if (!created) {
+								toast.success('Bug added');
+								closeDialog();
+								return;
 							}
-						};
-					}}
+
+							try {
+								const queued = [...pendingEvidence];
+								const withEvidence =
+									queued.length > 0
+										? await flushPendingEvidence(created.id, queued)
+										: null;
+
+								clearPendingEvidence();
+								createdIssue = structuredClone(withEvidence ?? created);
+								toast.success(
+									queued.length > 0 ? 'Bug added with evidence' : 'Bug added'
+								);
+							} catch (err) {
+								createdIssue = structuredClone(created);
+								toast.error(
+									err instanceof Error
+										? err.message
+										: 'Bug saved but some evidence failed to upload'
+								);
+							}
+						},
+						onFailure: (data) => {
+							toast.error(data?.message ?? 'Failed to add bug');
+						},
+						onError: () => {
+							toast.error('An unexpected error occurred while adding the bug');
+						},
+						onFinally: () => {
+							saving = false;
+						}
+					})}
 				></form>
 			{/if}
 

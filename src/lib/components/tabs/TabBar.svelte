@@ -1,16 +1,22 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
 	import { parseReportSlug, reportPath } from '$lib/routes.js';
 	import { preloadRoute } from '$lib/preload.js';
-	import { page } from '$app/stores';
+	import { navigateToReport, resolveActiveReportSlug, subscribeNavigationSlug, getNavigationRevision, clearShallowActiveSlug } from '$lib/report-navigation.js';
+	import { page } from '$app/state';
 	import type { ProjectGroupSummary, ReportSummary } from '$lib/server/store.js';
 	import {
+		hydrateOpenTabs,
 		loadOpenTabs,
 		removeTab,
 		saveOpenTabs,
+		subscribeOpenTabs,
+		getTabsVersion,
 		upsertTab,
 		type OpenTab
 	} from '$lib/tabs.js';
+	import { removeReportPane, schedulePreloadOpenTabs } from '$lib/report-host.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import OpenReportDialog from './OpenReportDialog.svelte';
 	import HomeIcon from '@lucide/svelte/icons/home';
@@ -23,18 +29,41 @@
 	let { projects, groups = [] }: { projects: ReportSummary[]; groups?: ProjectGroupSummary[] } =
 		$props();
 
-	let openTabs = $state<OpenTab[]>([]);
 	let openDialog = $state(false);
+	let tabsRevision = $state(0);
+	let navRevision = $state(0);
 
 	const isDarkMode = $derived(mode.current === 'dark');
 
-	const activeSlug = $derived(parseReportSlug($page.url.pathname));
-	const isHome = $derived($page.url.pathname === '/');
+	const activeSlug = $derived(
+		getNavigationRevision() + navRevision >= 0
+			? resolveActiveReportSlug(page.url.pathname)
+			: null
+	);
+	const isHome = $derived(page.url.pathname === '/');
+	const openTabs = $derived(getTabsVersion() + tabsRevision >= 0 ? loadOpenTabs() : []);
 
 	const reportMap = $derived(new Map(projects.map((report) => [report.slug, report])));
 
+	onMount(() => {
+		hydrateOpenTabs();
+		const unsubscribeTabs = subscribeOpenTabs(() => {
+			tabsRevision += 1;
+		});
+		const unsubscribeNav = subscribeNavigationSlug(() => {
+			navRevision += 1;
+		});
+		return () => {
+			unsubscribeTabs();
+			unsubscribeNav();
+		};
+	});
+
 	$effect(() => {
-		openTabs = loadOpenTabs();
+		schedulePreloadOpenTabs(
+			openTabs.map((tab) => tab.slug),
+			activeSlug
+		);
 	});
 
 	$effect(() => {
@@ -43,36 +72,39 @@
 		const report = reportMap.get(activeSlug);
 		if (!report) return;
 
-		const next = upsertTab(openTabs, { slug: report.slug, title: report.title });
-		if (JSON.stringify(next) !== JSON.stringify(openTabs)) {
-			openTabs = next;
+		const tabs = loadOpenTabs();
+		const next = upsertTab(tabs, { slug: report.slug, title: report.title });
+		if (JSON.stringify(next) !== JSON.stringify(tabs)) {
 			saveOpenTabs(next);
 		}
 	});
 
 	function selectTab(slug: string) {
 		if (slug === activeSlug) return;
-		goto(reportPath(slug));
+		const report = reportMap.get(slug);
+		void navigateToReport(slug, { title: report?.title });
 	}
 
 	function closeTab(event: MouseEvent, slug: string) {
 		event.stopPropagation();
 
-		const index = openTabs.findIndex((tab) => tab.slug === slug);
+		const tabs = loadOpenTabs();
+		const index = tabs.findIndex((tab) => tab.slug === slug);
 		if (index === -1) return;
 
-		const nextTabs = removeTab(openTabs, slug);
-		openTabs = nextTabs;
+		const nextTabs = removeTab(tabs, slug);
 		saveOpenTabs(nextTabs);
+		removeReportPane(slug);
 
 		if (activeSlug !== slug) return;
 
 		if (nextTabs.length > 0) {
 			const nextIndex = Math.min(index, nextTabs.length - 1);
-			goto(reportPath(nextTabs[nextIndex].slug));
+			void selectTab(nextTabs[nextIndex].slug);
 			return;
 		}
 
+		clearShallowActiveSlug();
 		goto('/');
 	}
 </script>
@@ -87,7 +119,10 @@
 				aria-label="Report list"
 				onpointerenter={() => preloadRoute('/')}
 				onfocus={() => preloadRoute('/')}
-				onclick={() => goto('/')}
+				onclick={() => {
+					clearShallowActiveSlug();
+					goto('/');
+				}}
 			>
 				<HomeIcon class="size-4" />
 			</Button>
@@ -131,7 +166,7 @@
 					onkeydown={(event) => {
 						if (event.key === 'Enter' || event.key === ' ') {
 							event.preventDefault();
-							selectTab(tab.slug);
+							void selectTab(tab.slug);
 						}
 					}}
 				>

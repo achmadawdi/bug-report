@@ -1,17 +1,15 @@
 <script lang="ts">
 	import type { ReportSummary } from '$lib/server/store.js';
-	import { goto } from '$app/navigation';
+	import { navigateToReport } from '$lib/report-navigation.js';
 	import { reportPath } from '$lib/routes.js';
 	import { saveLastVisitedInGroup } from '$lib/groups.js';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Card, CardContent } from '$lib/components/ui/card/index.js';
-	import {
-		Select,
-		SelectContent,
-		SelectItem,
-		SelectTrigger
-	} from '$lib/components/ui/select/index.js';
+	import { PROJECT_WORKFLOW_LABELS, PROJECT_WORKFLOW_STYLES } from '$lib/constants.js';
+	import { preloadRoute } from '$lib/preload.js';
 	import { cn } from '$lib/utils.js';
+	import { ui } from '$lib/ui-layout.js';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import { onMount } from 'svelte';
@@ -27,13 +25,12 @@
 	} = $props();
 
 	const currentIndex = $derived(reports.findIndex((r) => r.slug === currentSlug));
-	const useDropdown = $derived(reports.length > 6);
 
 	function navigateTo(slug: string) {
 		if (slug === currentSlug) return;
 		saveLastVisitedInGroup(groupSlug, slug);
 		const params = new URL(window.location.href).search;
-		goto(`${reportPath(slug)}${params}`);
+		void navigateToReport(slug, { search: params });
 	}
 
 	function navigatePrev() {
@@ -72,52 +69,53 @@
 		window.addEventListener('keydown', onKeydown);
 		return () => window.removeEventListener('keydown', onKeydown);
 	});
-
-	function reportLabel(report: ReportSummary): string {
-		return report.title.length > 28 ? `${report.title.slice(0, 28)}…` : report.title;
-	}
 </script>
 
 <Card class="gap-0 border-border bg-card/25 py-0 shadow-sm backdrop-blur-md">
-	<CardContent class="flex flex-wrap items-center gap-2 p-3">
-		{#if useDropdown}
-			<Select
-				type="single"
-				value={currentSlug}
-				onValueChange={(value) => {
-					if (value) navigateTo(value);
-				}}
-			>
-				<SelectTrigger class="h-8 min-w-[200px] bg-background text-sm">
-					{reports.find((r) => r.slug === currentSlug)?.title ?? currentSlug}
-				</SelectTrigger>
-				<SelectContent>
-					{#each reports as report (report.slug)}
-						<SelectItem value={report.slug}>{report.title}</SelectItem>
-					{/each}
-				</SelectContent>
-			</Select>
-		{:else}
-			<div class="flex flex-wrap items-center gap-1">
-				{#each reports as report (report.slug)}
-					<Button
-						size="sm"
-						variant="ghost"
-						class={cn(
-							'h-8 rounded-md text-xs',
-							report.slug === currentSlug
-								? 'bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary dark:bg-primary/10 dark:hover:bg-primary/15'
-								: 'text-muted-foreground hover:bg-muted/40 hover:text-foreground'
-						)}
-						onclick={() => navigateTo(report.slug)}
-					>
-						{reportLabel(report)}
-					</Button>
-				{/each}
-			</div>
-		{/if}
+	<CardContent class="flex flex-col gap-2 p-3">
+		<p class={ui.sectionTitle}>Related reports</p>
 
-		<div class="ml-auto flex items-center gap-1">
+		<div class="flex items-center gap-2">
+			<div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+			{#each reports as report (report.slug)}
+				<button
+					type="button"
+					class={cn(
+						'inline-flex max-w-full items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs transition-colors',
+						report.slug === currentSlug
+							? 'border-primary/40 bg-primary/10 text-foreground'
+							: 'border-border bg-secondary/40 text-muted-foreground hover:border-primary/30 hover:text-foreground'
+					)}
+					aria-current={report.slug === currentSlug ? 'page' : undefined}
+					onclick={() => navigateTo(report.slug)}
+					onpointerenter={() => preloadRoute(reportPath(report.slug))}
+					onfocus={() => preloadRoute(reportPath(report.slug))}
+				>
+					<span class="truncate font-medium">{report.title}</span>
+					{#if report.workflowStatus !== 'open'}
+						<Badge
+							variant="outline"
+							class={cn(
+								'shrink-0 px-1.5 py-0 text-[10px]',
+								PROJECT_WORKFLOW_STYLES[report.workflowStatus]
+							)}
+						>
+							{PROJECT_WORKFLOW_LABELS[report.workflowStatus]}
+						</Badge>
+					{/if}
+					<Badge variant="secondary" class="shrink-0 px-1.5 py-0 text-[10px]">
+						{report.issueCount}
+					</Badge>
+					{#if report.openCount > 0}
+						<span class="shrink-0 text-[10px] text-muted-foreground">
+							{report.openCount} open
+						</span>
+					{/if}
+				</button>
+			{/each}
+		</div>
+
+		<div class="flex shrink-0 items-center gap-1">
 			<Button
 				size="icon-sm"
 				variant="outline"
@@ -136,6 +134,7 @@
 			>
 				<ChevronRightIcon class="size-4" />
 			</Button>
+		</div>
 		</div>
 	</CardContent>
 </Card>

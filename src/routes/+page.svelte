@@ -1,9 +1,9 @@
 <script lang="ts">
 	import type { ReportSummary, ProjectGroupDetail } from '$lib/server/store.js';
 	import type { ReportWorkflowStatus } from '$lib/types.js';
-	import { goto } from '$app/navigation';
-	import { reportPath } from '$lib/routes.js';
-	import { upsertTab, saveOpenTabs, loadOpenTabs } from '$lib/tabs.js';
+	import { goto, invalidateAll } from '$app/navigation';
+	import { navigateToReportFromSummary } from '$lib/report-navigation.js';
+	import { deserialize } from '$app/forms';
 	import { Card, CardContent } from '$lib/components/ui/card/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -16,6 +16,7 @@
 	import OpenReportDialog from '$lib/components/tabs/OpenReportDialog.svelte';
 	import ReportCard from '$lib/components/tabs/ReportCard.svelte';
 	import ProjectGroupCard from '$lib/components/tabs/ProjectGroupCard.svelte';
+	import SortableList from '$lib/components/sortable/SortableList.svelte';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import FolderKanbanIcon from '@lucide/svelte/icons/folder-kanban';
 	import SearchIcon from '@lucide/svelte/icons/search';
@@ -23,8 +24,14 @@
 	import { PROJECT_WORKFLOW_LABELS } from '$lib/constants.js';
 	import { ui } from '$lib/ui-layout.js';
 	import { cn } from '$lib/utils.js';
-	import { isNavigatingToReport } from '$lib/navigation-loading.js';
+	import {
+		NAVIGATION_LOADING_DELAY_MS,
+		shouldShowReportNavigationSkeleton
+	} from '$lib/navigation-loading.js';
+	import { markRouteDataReady } from '$lib/preload.js';
 	import DashboardPageSkeleton from '$lib/components/skeletons/DashboardPageSkeleton.svelte';
+	import { onMount } from 'svelte';
+	import { toast } from 'svelte-sonner';
 
 	let { data } = $props();
 
@@ -33,8 +40,16 @@
 	let defaultGroupSlug = $state('');
 	let searchQuery = $state('');
 	let workflowFilter = $state<'all' | ReportWorkflowStatus>('all');
+	let localGroups = $state<ProjectGroupDetail[]>([]);
+	let localStandalone = $state<ReportSummary[]>([]);
 
-	const showLoadingSkeleton = $derived(isNavigatingToReport());
+	$effect(() => {
+		localGroups = data.groups.map((group) => ({
+			...group,
+			reports: [...group.reports]
+		}));
+		localStandalone = [...data.projects];
+	});
 
 	const WORKFLOW_FILTERS = [
 		{ value: 'all' as const, label: 'All' },
@@ -65,14 +80,18 @@
 		return workflowFilter === 'all' || report.workflowStatus === workflowFilter;
 	}
 
+	const filtersActive = $derived(
+		searchQuery.trim().length > 0 || workflowFilter !== 'all'
+	);
+
 	const filteredStandalone = $derived(
-		data.projects.filter(
+		(filtersActive ? data.projects : localStandalone).filter(
 			(report) => reportMatchesSearch(report, searchQuery) && reportMatchesWorkflow(report)
 		)
 	);
 
 	const filteredGroups = $derived(
-		data.groups
+		(filtersActive ? data.groups : localGroups)
 			.map((group) => {
 				const nameMatches = groupMatchesSearch(group, searchQuery);
 				const reports = group.reports.filter(
@@ -88,10 +107,6 @@
 			})
 	);
 
-	const filtersActive = $derived(
-		searchQuery.trim().length > 0 || workflowFilter !== 'all'
-	);
-
 	const visibleReportCount = $derived(
 		filteredStandalone.length +
 			filteredGroups.reduce((count, group) => count + group.reports.length, 0)
@@ -105,24 +120,120 @@
 
 	const groupsOnlyLayout = $derived(filteredStandalone.length === 0);
 
+	let showDelayedSkeleton = $state(false);
+
+	$effect(() => {
+		if (!shouldShowReportNavigationSkeleton()) {
+			showDelayedSkeleton = false;
+			return;
+		}
+
+		const timer = setTimeout(() => {
+			if (shouldShowReportNavigationSkeleton()) {
+				showDelayedSkeleton = true;
+			}
+		}, NAVIGATION_LOADING_DELAY_MS);
+
+		return () => {
+			clearTimeout(timer);
+			showDelayedSkeleton = false;
+		};
+	});
+
+	onMount(() => {
+		markRouteDataReady('/');
+	});
+
+	const showLoadingSkeleton = $derived(showDelayedSkeleton);
+
 	function clearFilters() {
 		searchQuery = '';
 		workflowFilter = 'all';
 	}
 
 	function openReport(report: ReportSummary) {
-		const tabs = upsertTab(loadOpenTabs(), {
-			slug: report.slug,
-			title: report.title
-		});
-		saveOpenTabs(tabs);
-		goto(reportPath(report.slug));
+		void navigateToReportFromSummary(report);
 	}
 
 	function openCreateDialog(groupSlug = '') {
 		defaultGroupSlug = groupSlug;
 		dialogMode = 'create';
 		openDialog = true;
+	}
+
+	async function submitHomeAction(action: string, fields: Record<string, string>) {
+		const formData = new FormData();
+		for (const [key, value] of Object.entries(fields)) {
+			formData.set(key, value);
+		}
+
+		const response = await fetch(`?/${action}`, { method: 'POST', body: formData });
+		const result = deserialize(await response.text());
+
+		if (result.type === 'failure') {
+			throw new Error((result.data as { message?: string })?.message ?? 'Request failed');
+		}
+
+		if (result.type === 'error') {
+			throw new Error('An unexpected error occurred');
+		}
+	}
+
+	async function handleGroupReorder(nextGroups: ProjectGroupDetail[]) {
+		const previous = localGroups;
+		localGroups = nextGroups;
+
+		try {
+			await submitHomeAction('reorderGroups', {
+				slugs: JSON.stringify(nextGroups.map((group) => group.slug))
+			});
+			await invalidateAll();
+		} catch (err) {
+			localGroups = previous;
+			toast.error(err instanceof Error ? err.message : 'Failed to reorder groups');
+		}
+	}
+
+	async function persistGroupReports(groupSlug: string, slugs: string[]) {
+		const previous = localGroups;
+		localGroups = localGroups.map((group) => {
+			if (group.slug !== groupSlug) return group;
+
+			const bySlug = new Map(group.reports.map((report) => [report.slug, report]));
+			return {
+				...group,
+				reports: slugs
+					.map((slug) => bySlug.get(slug))
+					.filter((report): report is ReportSummary => Boolean(report))
+			};
+		});
+
+		try {
+			await submitHomeAction('reorderGroupReports', {
+				groupSlug,
+				slugs: JSON.stringify(slugs)
+			});
+			await invalidateAll();
+		} catch (err) {
+			localGroups = previous;
+			toast.error(err instanceof Error ? err.message : 'Failed to reorder reports');
+			throw err;
+		}
+	}
+
+	async function handleStandaloneReorder(nextReports: ReportSummary[]) {
+		const previous = localStandalone;
+		localStandalone = nextReports;
+
+		try {
+			await submitHomeAction('reorderStandaloneReports', {
+				slugs: JSON.stringify(nextReports.map((report) => report.slug))
+			});
+			await invalidateAll();
+		} catch (err) {
+			localStandalone = previous;
+			toast.error(err instanceof Error ? err.message : 'Failed to reorder reports');
+		}
 	}
 </script>
 
@@ -226,19 +337,56 @@
 				groupsOnlyLayout ? 'grid-cols-1' : 'md:grid-cols-2 lg:grid-cols-3'
 			)}
 		>
-			{#each filteredGroups as group (group.slug)}
-				<ProjectGroupCard
-					{group}
-					class={groupsOnlyLayout ? '' : 'md:col-span-2 lg:col-span-3'}
-					onOpenReport={openReport}
-					onCreateReport={() => openCreateDialog(group.slug)}
-					{groupsOnlyLayout}
-				/>
-			{/each}
+			{#if !filtersActive}
+				<SortableList
+					items={localGroups}
+					getKey={(group) => group.slug}
+					class="contents"
+					itemClass={groupsOnlyLayout ? 'col-span-1' : 'md:col-span-2 lg:col-span-3'}
+					onReorder={handleGroupReorder}
+				>
+					{#snippet children(group, { dragHandleAttrs })}
+						<ProjectGroupCard
+							{group}
+							sortable
+							{dragHandleAttrs}
+							onOpenReport={openReport}
+							onCreateReport={() => openCreateDialog(group.slug)}
+							onReorderReports={(slugs) => persistGroupReports(group.slug, slugs)}
+							{groupsOnlyLayout}
+						/>
+					{/snippet}
+				</SortableList>
 
-			{#each filteredStandalone as report (report.slug)}
-				<ReportCard {report} onclick={() => openReport(report)} />
-			{/each}
+				<SortableList
+					items={localStandalone}
+					getKey={(report) => report.slug}
+					class="contents"
+					onReorder={handleStandaloneReorder}
+				>
+					{#snippet children(report, { dragHandleAttrs })}
+						<ReportCard
+							{report}
+							{dragHandleAttrs}
+							onclick={() => openReport(report)}
+						/>
+					{/snippet}
+				</SortableList>
+			{:else}
+				{#each filteredGroups as group (group.slug)}
+					<ProjectGroupCard
+						{group}
+						class={groupsOnlyLayout ? '' : 'md:col-span-2 lg:col-span-3'}
+						onOpenReport={openReport}
+						onCreateReport={() => openCreateDialog(group.slug)}
+						{groupsOnlyLayout}
+					/>
+				{/each}
+
+				{#each filteredStandalone as report (report.slug)}
+					<ReportCard {report} onclick={() => openReport(report)} />
+				{/each}
+			{/if}
 
 			{#if !filtersActive}
 				<button

@@ -1,8 +1,7 @@
 <script lang="ts">
 	import type { ProjectGroupDetail } from '$lib/server/store.js';
 	import { goto } from '$app/navigation';
-	import { reportPath } from '$lib/routes.js';
-	import { upsertTab, saveOpenTabs, loadOpenTabs } from '$lib/tabs.js';
+	import { navigateToReportFromSummary } from '$lib/report-navigation.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import ProgressBar from '$lib/components/ProgressBar.svelte';
 	import { Card } from '$lib/components/ui/card/index.js';
@@ -20,12 +19,7 @@
 	const lastVisited = $derived(getLastVisitedInGroup(data.group.slug));
 
 	function openReport(report: ProjectGroupDetail['reports'][number]) {
-		const tabs = upsertTab(loadOpenTabs(), {
-			slug: report.slug,
-			title: report.title
-		});
-		saveOpenTabs(tabs);
-		goto(reportPath(report.slug));
+		void navigateToReportFromSummary(report);
 	}
 </script>
 

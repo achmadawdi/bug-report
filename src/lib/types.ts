@@ -3,6 +3,12 @@ import { z } from 'zod';
 export const severitySchema = z.enum(['Critical', 'High', 'Medium', 'Low']);
 export const statusSchema = z.enum(['open', 'in_progress', 'fixed', 'wont_fix']);
 export const reportWorkflowStatusSchema = z.enum(['open', 'resolved', 'postponed']);
+
+export const workflowNoteSchema = z
+	.string()
+	.trim()
+	.min(1, 'Developer note is required')
+	.max(4000, 'Developer note is too long');
 export const evidenceMediaTypeSchema = z.enum(['image', 'video']);
 
 export const environmentSchema = z.enum(['Development', 'Staging', 'Production']);

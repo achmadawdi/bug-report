@@ -20,7 +20,9 @@ export const MIGRATION_IDS = [
 	'2026-06-13_rename_projects_to_reports',
 	'2026-06-13_backfill_testing_sessions',
 	'2026-06-13_apply_schema_sql',
-	'2026-06-13_repair_issues_foreign_key'
+	'2026-06-13_repair_issues_foreign_key',
+	'2026-06-13_add_workflow_note',
+	'2026-06-13_add_sort_order'
 ] as const;
 
 export type MigrationId = (typeof MIGRATION_IDS)[number];

@@ -31,8 +31,13 @@
 		DropdownMenuItem,
 		DropdownMenuTrigger
 	} from '$lib/components/ui/dropdown-menu/index.js';
-	import { enhance } from '$app/forms';
 	import { toast } from 'svelte-sonner';
+	import { enhance } from '$app/forms';
+	import {
+		enhanceReportForm,
+		getReportSlugContext,
+		reportFormAction
+	} from '$lib/report-forms.js';
 	import { displayDate, displayNumber, displayText } from '$lib/format.js';
 	import { ui } from '$lib/ui-layout.js';
 	import Gamepad2Icon from '@lucide/svelte/icons/gamepad-2';
@@ -48,29 +53,29 @@
 	import GraduationCapIcon from '@lucide/svelte/icons/graduation-cap';
 	import FolderTreeIcon from '@lucide/svelte/icons/folder-tree';
 	import Loader2Icon from '@lucide/svelte/icons/loader-2';
-	import type { ProjectGroupSummary, ReportSummary } from '$lib/server/store.js';
+	import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
+	import ClockIcon from '@lucide/svelte/icons/clock';
+	import type { ProjectGroupSummary } from '$lib/server/store.js';
 	import type { ReportWorkflowStatus } from '$lib/types.js';
 	import {
 		PROJECT_WORKFLOW_LABELS,
 		PROJECT_WORKFLOW_STATUSES,
 		PROJECT_WORKFLOW_STYLES
 	} from '$lib/constants.js';
-	import { invalidateAll } from '$app/navigation';
-	import { reportPath } from '$lib/routes.js';
-	import { preloadRoute } from '$lib/preload.js';
+	import { refreshAppData } from '$lib/refresh-app-data.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { cn } from '$lib/utils.js';
 
 	import GroupAssignField from './GroupAssignField.svelte';
+	import LinkedText from '$lib/components/LinkedText.svelte';
 
 	let {
 		report,
 		testing_session,
 		groups = [],
 		currentGroupSlug = null,
-		currentReportSlug = '',
-		relatedReports = [],
 		workflowStatus = 'open',
+		workflowNote = null,
 		embedded = false,
 		onExportJson,
 		onExportPdf
@@ -79,9 +84,8 @@
 		testing_session: TestingSession;
 		groups?: ProjectGroupSummary[];
 		currentGroupSlug?: string | null;
-		currentReportSlug?: string;
-		relatedReports?: ReportSummary[];
 		workflowStatus?: ReportWorkflowStatus;
+		workflowNote?: string | null;
 		embedded?: boolean;
 		onExportJson: () => void;
 		onExportPdf: () => void;
@@ -95,8 +99,14 @@
 
 	let editOpen = $state(false);
 	let saving = $state(false);
+	const reportSlug = getReportSlugContext();
 	let workflowSaving = $state(false);
 	let pendingWorkflowStatus = $state<ReportWorkflowStatus | null>(null);
+	let workflowForm = $state<HTMLFormElement | null>(null);
+	let workflowDialogOpen = $state(false);
+	let workflowNoteEditMode = $state(false);
+	let workflowNoteDraft = $state('');
+	let workflowTargetStatus = $state<ReportWorkflowStatus | null>(null);
 	let groupSlug = $state('');
 	let newGroupName = $state('');
 	let reportDraft = $state({
@@ -158,19 +168,83 @@
 		editOpen = true;
 	}
 
+	function submitWorkflowStatus(status: ReportWorkflowStatus, note = '') {
+		if (!workflowForm || workflowSaving) return;
+		const statusInput = workflowForm.elements.namedItem('status') as HTMLInputElement | null;
+		const noteInput = workflowForm.elements.namedItem('workflowNote') as HTMLInputElement | null;
+		if (statusInput) statusInput.value = status;
+		if (noteInput) noteInput.value = note;
+		workflowForm.requestSubmit();
+	}
+
+	function requestWorkflowStatus(status: ReportWorkflowStatus) {
+		if (status === workflowStatus || workflowSaving) return;
+
+		if (status === 'open') {
+			submitWorkflowStatus('open', '');
+			return;
+		}
+
+		workflowNoteEditMode = false;
+		workflowTargetStatus = status;
+		workflowNoteDraft = workflowNote ?? '';
+		workflowDialogOpen = true;
+	}
+
+	function openEditWorkflowNote() {
+		if (workflowStatus === 'open' || workflowSaving) return;
+
+		workflowNoteEditMode = true;
+		workflowTargetStatus = workflowStatus;
+		workflowNoteDraft = workflowNote ?? '';
+		workflowDialogOpen = true;
+	}
+
+	function confirmWorkflowStatus() {
+		if (!workflowTargetStatus) return;
+		const note = workflowNoteDraft.trim();
+		if (!note) {
+			toast.error('Developer note is required.');
+			return;
+		}
+
+		workflowDialogOpen = false;
+		submitWorkflowStatus(workflowTargetStatus, note);
+	}
+
 	const currentGroupTitle = $derived(
 		groups.find((group) => group.slug === currentGroupSlug)?.title ?? null
 	);
 
-	const showRelatedReports = $derived(relatedReports.length > 1);
 	const showDetailsSection = $derived(
 		Boolean(
 			testing_session.test_scope ||
 				(testing_session.tester_level && testing_session.tester_level !== 'Mixed') ||
-				testing_session.environment ||
-				showRelatedReports
+				testing_session.environment
 		)
 	);
+
+	const showWorkflowNote = $derived(
+		workflowStatus !== 'open' && Boolean(workflowNote?.trim())
+	);
+
+	const workflowNoteTone = $derived(
+		workflowStatus === 'resolved'
+			? {
+					surface: 'border-severity-low/30 bg-severity-low/8',
+					iconClass: 'text-severity-low',
+					badgeClass: 'border-severity-low/30 bg-severity-low/10 text-severity-low',
+					Icon: CircleCheckIcon
+				}
+			: {
+					surface: 'border-severity-high/25 bg-severity-high/6',
+					iconClass: 'text-severity-high',
+					badgeClass: 'border-severity-high/25 bg-severity-high/8 text-severity-high',
+					Icon: ClockIcon
+				}
+	);
+
+	const showMetadataDetails = $derived(showDetailsSection || showWorkflowNote);
 </script>
 
 <div
@@ -202,56 +276,63 @@
 				</div>
 
 				<div
-					class="flex flex-wrap items-center gap-2 border-t border-border/40 pt-3 @3xl:border-t-0 @3xl:pt-0 @3xl:shrink-0 @3xl:justify-end"
+					class="flex w-full items-center justify-end border-t border-border/40 pt-3 @3xl:w-auto @3xl:border-t-0 @3xl:pt-0 @3xl:shrink-0"
 				>
 				<form
+					bind:this={workflowForm}
 					method="POST"
-					action="?/updateWorkflowStatus"
+					action={reportFormAction(reportSlug, '?/updateWorkflowStatus')}
 					class="flex items-center gap-1 rounded-lg border border-border-subtle bg-secondary/20 p-1"
-					use:enhance={({ formData }) => {
-						const nextStatus = String(
-							formData.get('status') ?? ''
-						) as ReportWorkflowStatus;
-						pendingWorkflowStatus = nextStatus;
-						workflowSaving = true;
-						return async ({ result, update }) => {
-							try {
-								await update();
-								if (result.type === 'success') {
-									toast.success(`Project marked ${PROJECT_WORKFLOW_LABELS[nextStatus]}`);
-									await invalidateAll();
-								} else if (result.type === 'failure') {
-									toast.error(
-										(result.data as { message?: string })?.message ??
-											'Failed to update project status'
-									);
-								} else if (result.type === 'error') {
-									toast.error('An unexpected error occurred while updating project status');
-								}
-							} finally {
-								workflowSaving = false;
-								pendingWorkflowStatus = null;
+					use:enhance={enhanceReportForm(reportSlug, {
+						onSubmit: () => {
+							pendingWorkflowStatus = workflowTargetStatus ?? workflowStatus;
+							workflowSaving = true;
+						},
+						onSuccess: async (data) => {
+							const nextStatus =
+								(data?.workflowStatus as ReportWorkflowStatus | undefined) ??
+								pendingWorkflowStatus;
+							if (workflowNoteEditMode) {
+								toast.success('Developer note updated');
+							} else if (nextStatus) {
+								toast.success(`Project marked ${PROJECT_WORKFLOW_LABELS[nextStatus]}`);
 							}
-						};
-					}}
+							workflowNoteEditMode = false;
+							workflowTargetStatus = null;
+							workflowNoteDraft = '';
+							workflowDialogOpen = false;
+							await refreshAppData();
+						},
+						onFailure: (data) => {
+							toast.error(data?.message ?? 'Failed to update project status');
+						},
+						onError: () => {
+							toast.error('An unexpected error occurred while updating project status');
+						},
+						onFinally: () => {
+							workflowSaving = false;
+							pendingWorkflowStatus = null;
+						}
+					})}
 				>
+					<input type="hidden" name="status" value={workflowStatus} />
+					<input type="hidden" name="workflowNote" value="" />
 					{#each PROJECT_WORKFLOW_STATUSES as status (status)}
 						{@const isActive = workflowStatus === status}
 						<Button
-							type={isActive ? 'button' : 'submit'}
-							name="status"
-							value={status}
+							type="button"
 							size="sm"
 							variant="ghost"
 							class={cn(
 								ui.controlSm,
 								'px-2.5 text-xs rounded-md transition-all duration-200',
 								isActive
-									? 'bg-primary-surface border border-primary-muted/20 text-primary font-semibold shadow-sm pointer-events-none'
+									? 'bg-primary-surface border border-primary-muted/20 text-primary font-semibold shadow-sm'
 									: 'text-muted-foreground hover:bg-muted/20 hover:text-foreground'
 							)}
-							disabled={workflowSaving && !isActive}
+							disabled={workflowSaving}
 							aria-pressed={isActive}
+							onclick={() => requestWorkflowStatus(status)}
 						>
 							{#if workflowSaving && pendingWorkflowStatus === status}
 								<Loader2Icon class="size-3 animate-spin" />
@@ -260,8 +341,10 @@
 						</Button>
 					{/each}
 				</form>
+				</div>
 
-				<DropdownMenu>
+				<div class="flex flex-wrap items-center gap-2 @3xl:contents">
+					<DropdownMenu>
 						<DropdownMenuTrigger>
 							{#snippet child({ props })}
 								<Button
@@ -319,7 +402,7 @@
 			</div>
 		{/if}
 
-		{#if showDetailsSection}
+		{#if showMetadataDetails}
 			<div class="border-t border-border/60 {ui.cardPadding}">
 				{#if testing_session.test_scope}
 					<div class="flex {ui.grid}">
@@ -336,7 +419,7 @@
 				{/if}
 
 				{#if testing_session.tester_level && testing_session.tester_level !== 'Mixed'}
-					<div class="mt-4 flex {ui.grid}">
+					<div class={cn('flex', ui.grid, testing_session.test_scope && 'mt-4')}>
 						<div class={ui.iconTile}>
 							<GraduationCapIcon class={ui.iconTileIcon} />
 						</div>
@@ -350,7 +433,16 @@
 				{/if}
 
 				{#if testing_session.environment}
-					<div class="mt-4 flex {ui.grid}">
+					<div
+						class={cn(
+							'flex',
+							ui.grid,
+							(testing_session.test_scope ||
+								(testing_session.tester_level &&
+									testing_session.tester_level !== 'Mixed')) &&
+								'mt-4'
+						)}
+					>
 						<div class={ui.iconTile}>
 							<ServerIcon class={ui.iconTileIcon} />
 						</div>
@@ -363,51 +455,50 @@
 					</div>
 				{/if}
 
-				{#if showRelatedReports}
+				{#if showWorkflowNote}
+					{@const NoteIcon = workflowNoteTone.Icon}
 					<div
-						class={testing_session.test_scope ||
-						(testing_session.tester_level && testing_session.tester_level !== 'Mixed') ||
-						testing_session.environment
-							? 'mt-4'
-							: ''}
+						class={cn(
+							'flex gap-3 rounded-lg border p-3',
+							workflowNoteTone.surface,
+							showDetailsSection && 'mt-4'
+						)}
 					>
-						<p class={ui.sectionTitle}>Related reports</p>
-						<div class="mt-2 flex flex-wrap gap-2">
-							{#each relatedReports as sibling (sibling.slug)}
-								<a
-									href={reportPath(sibling.slug)}
-									class={cn(
-										'inline-flex max-w-full items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs transition-colors',
-										sibling.slug === currentReportSlug
-											? 'border-primary/40 bg-primary/10 text-foreground'
-											: 'border-border bg-secondary/40 text-muted-foreground hover:border-primary/30 hover:text-foreground'
-									)}
-									aria-current={sibling.slug === currentReportSlug ? 'page' : undefined}
-									onpointerenter={() => preloadRoute(reportPath(sibling.slug))}
-									onfocus={() => preloadRoute(reportPath(sibling.slug))}
-								>
-									<span class="truncate font-medium">{sibling.title}</span>
-									{#if sibling.workflowStatus !== 'open'}
-										<Badge
-											variant="outline"
-											class={cn(
-												'shrink-0 px-1.5 py-0 text-[10px]',
-												PROJECT_WORKFLOW_STYLES[sibling.workflowStatus]
-											)}
-										>
-											{PROJECT_WORKFLOW_LABELS[sibling.workflowStatus]}
-										</Badge>
-									{/if}
-									<Badge variant="secondary" class="shrink-0 px-1.5 py-0 text-[10px]">
-										{sibling.issueCount}
+						<div
+							class={cn(
+								'flex size-8 shrink-0 items-center justify-center rounded-md border border-border/40 bg-background/40',
+								workflowNoteTone.iconClass
+							)}
+						>
+							<NoteIcon class="size-4" />
+						</div>
+						<div class="flex min-w-0 flex-1 flex-col gap-0.5">
+							<div class="flex items-center justify-between gap-2">
+								<div class="flex flex-wrap items-center gap-2">
+									<p class={ui.sectionTitle}>Developer note</p>
+									<Badge
+										variant="outline"
+										class={cn('px-1.5 py-0 text-[10px]', workflowNoteTone.badgeClass)}
+									>
+										{PROJECT_WORKFLOW_LABELS[workflowStatus]}
 									</Badge>
-									{#if sibling.openCount > 0}
-										<span class="shrink-0 text-[10px] text-muted-foreground">
-											{sibling.openCount} open
-										</span>
-									{/if}
-								</a>
-							{/each}
+								</div>
+								<Button
+									type="button"
+									size="icon-sm"
+									variant="ghost"
+									class="size-7 shrink-0 text-muted-foreground hover:bg-background/50 hover:text-foreground"
+									aria-label="Edit developer note"
+									disabled={workflowSaving}
+									onclick={openEditWorkflowNote}
+								>
+									<PencilIcon class="size-3.5" />
+								</Button>
+							</div>
+							<LinkedText
+								value={workflowNote ?? ''}
+								class="text-sm leading-snug text-foreground/90"
+							/>
 						</div>
 					</div>
 				{/if}
@@ -426,29 +517,27 @@
 
 		<form
 			method="POST"
-			action="?/updateReport"
+			action={reportFormAction(reportSlug, '?/updateReport')}
 			class="flex min-h-0 flex-1 flex-col"
-			use:enhance={() => {
-				saving = true;
-				return async ({ result, update }) => {
-					try {
-						await update();
-						if (result.type === 'success') {
-							toast.success('Report details updated');
-							editOpen = false;
-							await invalidateAll();
-						} else if (result.type === 'failure') {
-							toast.error(
-								(result.data as { message?: string })?.message ?? 'Failed to update report'
-							);
-						} else if (result.type === 'error') {
-							toast.error('An unexpected error occurred while updating the report');
-						}
-					} finally {
-						saving = false;
-					}
-				};
-			}}
+			use:enhance={enhanceReportForm(reportSlug, {
+				onSubmit: () => {
+					saving = true;
+				},
+				onSuccess: async () => {
+					toast.success('Report details updated');
+					editOpen = false;
+					await refreshAppData();
+				},
+				onFailure: (data) => {
+					toast.error(data?.message ?? 'Failed to update report');
+				},
+				onError: () => {
+					toast.error('An unexpected error occurred while updating the report');
+				},
+				onFinally: () => {
+					saving = false;
+				}
+			})}
 		>
 			<div class={ui.overlayBody}>
 				<section class={ui.section}>
@@ -669,5 +758,68 @@
 				</Button>
 			</DialogFooter>
 		</form>
+	</DialogContent>
+</Dialog>
+
+<Dialog
+	bind:open={workflowDialogOpen}
+	onOpenChange={(open) => {
+		if (!open) {
+			workflowNoteEditMode = false;
+			workflowTargetStatus = null;
+			workflowNoteDraft = '';
+		}
+	}}
+>
+	<DialogContent class="flex max-h-[min(90vh,32rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
+		<DialogHeader class={ui.overlayHeader}>
+			<DialogTitle class="text-lg leading-tight">
+				{#if workflowNoteEditMode}
+					Edit developer note
+				{:else}
+					Mark as {workflowTargetStatus ? PROJECT_WORKFLOW_LABELS[workflowTargetStatus] : 'Updated'}
+				{/if}
+			</DialogTitle>
+			<DialogDescription class="text-sm leading-relaxed">
+				{#if workflowNoteEditMode}
+					Update the note for this {PROJECT_WORKFLOW_LABELS[workflowStatus].toLowerCase()} report.
+					Bare URLs and [label](https://example.com) links are supported.
+				{:else}
+					Add a developer note explaining this status change. It is required when resolving or
+					postponing a report.
+				{/if}
+			</DialogDescription>
+		</DialogHeader>
+
+		<div class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-4">
+			<div class={ui.field}>
+				<Label for="workflow-note" class={ui.label}>Developer note</Label>
+				<Textarea
+					id="workflow-note"
+					rows={5}
+					class="min-h-28 resize-y bg-background leading-relaxed"
+					placeholder="Describe the update. Bare URLs and [label](https://example.com) links are supported."
+					bind:value={workflowNoteDraft}
+				/>
+			</div>
+		</div>
+
+		<DialogFooter class="m-0 rounded-none {ui.overlayFooter}">
+			<Button
+				type="button"
+				variant="outline"
+				onclick={() => {
+					workflowDialogOpen = false;
+				}}
+			>
+				Cancel
+			</Button>
+			<Button type="button" disabled={workflowSaving} onclick={confirmWorkflowStatus}>
+				{#if workflowSaving}
+					<Loader2Icon class="size-4 animate-spin" />
+				{/if}
+				{workflowNoteEditMode ? 'Save note' : 'Confirm'}
+			</Button>
+		</DialogFooter>
 	</DialogContent>
 </Dialog>
