@@ -58,12 +58,8 @@
 				</p>
 				<p><strong>Release:</strong> {displayText(data.report.report.version)}</p>
 				<p>
-					<strong>Tester version:</strong>
-					{displayText(data.report.testing_session.tester_version)}
-				</p>
-				<p>
-					<strong>Education level:</strong>
-					{displayText(data.report.testing_session.tester_education_level)}
+					<strong>Tester level:</strong>
+					{displayText(data.report.testing_session.tester_level)}
 				</p>
 				{#if data.report.testing_session.environment}
 					<p>
@@ -71,11 +67,15 @@
 						{displayText(data.report.testing_session.environment)}
 					</p>
 				{/if}
-				<p><strong>Source file:</strong> {displayText(data.report.report.source_file)}</p>
+				{#if data.report.report.source_file}
+					<p><strong>Source file:</strong> {displayText(data.report.report.source_file)}</p>
+				{/if}
 			</div>
-			<p class="mt-3 text-sm text-zinc-600">
-				<strong>Scope:</strong> {displayText(data.report.testing_session.test_scope)}
-			</p>
+			{#if data.report.testing_session.test_scope}
+				<p class="mt-3 text-sm text-zinc-600">
+					<strong>Scope:</strong> {displayText(data.report.testing_session.test_scope)}
+				</p>
+			{/if}
 		</header>
 
 		<section class="mb-8">

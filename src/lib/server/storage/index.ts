@@ -1,10 +1,21 @@
 export {
 	ensureReady as ensureDbReady,
 	getReport,
-	listProjectSlugs,
+	listReportSlugs,
+	listStandaloneReportSlugs,
 	reportExists,
 	saveReport,
-	updateIssueStatus
+	updateIssueStatus,
+	listProjectGroups,
+	projectGroupExists,
+	createProjectGroup,
+	getProjectGroup,
+	listProjectGroupStats,
+	getReportGroupSlug,
+	listReportsInGroup,
+	setReportGroupSlug,
+	getReportWorkflowStatus,
+	updateReportWorkflowStatus
 } from '$lib/server/db/repository.js';
 
 import { canUseR2Storage as checkR2Storage } from './r2.js';

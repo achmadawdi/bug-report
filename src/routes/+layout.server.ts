@@ -1,7 +1,7 @@
-import { listProjects } from '$lib/server/store.js';
+import { listGroups, listReports } from '$lib/server/store.js';
 import type { LayoutServerLoad } from './$types.js';
 
 export const load: LayoutServerLoad = async () => {
-	const projects = await listProjects();
-	return { projects };
+	const [projects, groups] = await Promise.all([listReports(), listGroups()]);
+	return { projects, groups };
 };

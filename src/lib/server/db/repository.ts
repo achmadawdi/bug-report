@@ -1,12 +1,12 @@
-import type { BugStatus, EvidenceMedia, Issue, ReportData } from '$lib/types.js';
+import type { BugStatus, EvidenceMedia, Issue, ReportData, ReportWorkflowStatus } from '$lib/types.js';
 import { normalizeTestingSession, parseReportData, reportDataSchema } from '$lib/types.js';
-import { getBundledSeedProjects } from '$lib/server/storage/seed.js';
+import { getBundledSeedReports } from '$lib/server/storage/seed.js';
 import { getSql } from './client.js';
 import { runMigrations } from './migrate.js';
 
 let seeded = false;
 
-type ProjectRow = {
+type ReportRow = {
 	slug: string;
 	title: string;
 	type: string;
@@ -19,6 +19,8 @@ type ProjectRow = {
 	test_scope: string;
 	version: string;
 	source_file: string;
+	group_slug: string | null;
+	workflow_status: string;
 };
 
 type TestingSessionRow = {
@@ -27,8 +29,7 @@ type TestingSessionRow = {
 	game_version_tested: string;
 	device_type: string;
 	tester_count: number;
-	tester_version: string;
-	tester_education_level: string;
+	tester_level: string;
 	test_scope: string | null;
 	environment: string | null;
 };
@@ -72,11 +73,11 @@ async function seedFromBundledData(): Promise<void> {
 	seeded = true;
 
 	const sql = getSql();
-	const countRows = (await sql`SELECT COUNT(*)::int AS count FROM projects`) as { count: number }[];
+	const countRows = (await sql`SELECT COUNT(*)::int AS count FROM reports`) as { count: number }[];
 	const count = countRows[0]?.count ?? 0;
 	if (count > 0) return;
 
-	const seeds = getBundledSeedProjects();
+	const seeds = getBundledSeedReports();
 	for (const { slug, json } of seeds) {
 		const data = parseReportData(JSON.parse(json));
 		await saveReport(slug, data);
@@ -88,22 +89,22 @@ export async function ensureReady(): Promise<void> {
 	await seedFromBundledData();
 }
 
-export async function listProjectSlugs(): Promise<string[]> {
+export async function listReportSlugs(): Promise<string[]> {
 	await ensureReady();
 	const sql = getSql();
-	const rows = (await sql`SELECT slug FROM projects ORDER BY slug`) as { slug: string }[];
+	const rows = (await sql`SELECT slug FROM reports ORDER BY slug`) as { slug: string }[];
 	return rows.map((row) => row.slug);
 }
 
 export async function reportExists(slug: string): Promise<boolean> {
 	await ensureReady();
 	const sql = getSql();
-	const rows = (await sql`SELECT 1 FROM projects WHERE slug = ${slug} LIMIT 1`) as unknown[];
+	const rows = (await sql`SELECT 1 FROM reports WHERE slug = ${slug} LIMIT 1`) as unknown[];
 	return rows.length > 0;
 }
 
 function buildTestingSession(
-	project: ProjectRow,
+	report: ReportRow,
 	sessionRow: TestingSessionRow | undefined
 ): ReportData['testing_session'] {
 	if (sessionRow) {
@@ -113,22 +114,19 @@ function buildTestingSession(
 			game_version_tested: sessionRow.game_version_tested,
 			device_type: sessionRow.device_type as ReportData['testing_session']['device_type'],
 			tester_count: sessionRow.tester_count,
-			tester_version: sessionRow.tester_version,
-			tester_education_level:
-				sessionRow.tester_education_level as ReportData['testing_session']['tester_education_level'],
+			tester_level: sessionRow.tester_level as ReportData['testing_session']['tester_level'],
 			test_scope: sessionRow.test_scope,
 			environment: sessionRow.environment as ReportData['testing_session']['environment']
 		});
 	}
 
 	return normalizeTestingSession(undefined, {
-		platform: project.platform,
-		version_tested: project.version_tested,
-		device: project.device,
-		tester: project.tester,
-		tester_version: project.tester_version,
-		test_date: project.test_date,
-		test_scope: project.test_scope
+		platform: report.platform,
+		version_tested: report.version_tested,
+		device: report.device,
+		tester: report.tester,
+		test_date: report.test_date,
+		test_scope: report.test_scope
 	});
 }
 
@@ -136,36 +134,36 @@ export async function getReport(slug: string): Promise<ReportData> {
 	await ensureReady();
 	const sql = getSql();
 
-	const projectRows = (await sql`
+	const reportRows = (await sql`
 		SELECT slug, title, type, platform, version_tested, device, tester,
-			tester_version, test_date, test_scope, version, source_file
-		FROM projects
+			tester_version, test_date, test_scope, version, source_file, group_slug
+		FROM reports
 		WHERE slug = ${slug}
-	`) as ProjectRow[];
+	`) as ReportRow[];
 
-	if (projectRows.length === 0) {
-		throw new Error(`Project "${slug}" not found`);
+	if (reportRows.length === 0) {
+		throw new Error(`Report "${slug}" not found`);
 	}
 
-	const project = projectRows[0] as ProjectRow;
+	const reportRow = reportRows[0] as ReportRow;
 
 	const sessionRows = (await sql`
 		SELECT test_date, minecraft_edition, game_version_tested, device_type,
-			tester_count, tester_version, tester_education_level, test_scope, environment
-		FROM project_testing_sessions
-		WHERE project_slug = ${slug}
+			tester_count, tester_level, test_scope, environment
+		FROM report_testing_sessions
+		WHERE report_slug = ${slug}
 	`) as TestingSessionRow[];
 
 	const severityRows = (await sql`
 		SELECT severity, description
-		FROM project_severity_guide
-		WHERE project_slug = ${slug}
+		FROM report_severity_guide
+		WHERE report_slug = ${slug}
 	`) as SeverityRow[];
 
 	const cleanLevelRows = (await sql`
 		SELECT level_name, sort_order
-		FROM project_clean_levels
-		WHERE project_slug = ${slug}
+		FROM report_clean_levels
+		WHERE report_slug = ${slug}
 		ORDER BY sort_order, level_name
 	`) as CleanLevelRow[];
 
@@ -173,14 +171,14 @@ export async function getReport(slug: string): Promise<ReportData> {
 		SELECT id, area, title, severity, category, finding, expected_result,
 			status, notes, evidence, reason, suggested_text_or_behavior, source_page
 		FROM issues
-		WHERE project_slug = ${slug}
+		WHERE report_slug = ${slug}
 		ORDER BY id
 	`) as IssueRow[];
 
 	const evidenceRows = (await sql`
 		SELECT issue_id, type, src, caption, sort_order
 		FROM evidence_media
-		WHERE project_slug = ${slug}
+		WHERE report_slug = ${slug}
 		ORDER BY issue_id, sort_order, id
 	`) as EvidenceRow[];
 
@@ -227,14 +225,16 @@ export async function getReport(slug: string): Promise<ReportData> {
 		return issue;
 	});
 
-	const testing_session = buildTestingSession(project, sessionRows[0]);
+	const testing_session = buildTestingSession(reportRow, sessionRows[0]);
+
+	const sourceFile = reportRow.source_file.trim() === '' ? null : reportRow.source_file;
 
 	const data: ReportData = {
 		report: {
-			title: project.title,
-			type: project.type as ReportData['report']['type'],
-			version: project.version,
-			source_file: project.source_file
+			title: reportRow.title,
+			type: reportRow.type as ReportData['report']['type'],
+			version: reportRow.version,
+			source_file: sourceFile
 		},
 		testing_session,
 		severity_guide,
@@ -255,7 +255,7 @@ export async function updateIssueStatus(
 	const rows = (await sql`
 		UPDATE issues
 		SET status = ${status}
-		WHERE project_slug = ${slug} AND id = ${issueId}
+		WHERE report_slug = ${slug} AND id = ${issueId}
 		RETURNING id
 	`) as { id: string }[];
 
@@ -275,18 +275,19 @@ export async function saveReport(slug: string, data: ReportData): Promise<void> 
 	const legacyDevice = testing_session.device_type;
 	const legacyTester = String(testing_session.tester_count);
 	const legacyTestScope = testing_session.test_scope ?? '';
+	const legacySourceFile = report.source_file ?? '';
 
 	await sql.transaction((txn) => {
 		const queries = [
 			txn`
-				INSERT INTO projects (
+				INSERT INTO reports (
 					slug, title, type, platform, version_tested, device, tester,
 					tester_version, test_date, test_scope, version, source_file, updated_at
 				) VALUES (
 					${slug}, ${report.title}, ${report.type}, ${legacyPlatform},
 					${legacyVersionTested}, ${legacyDevice}, ${legacyTester},
-					${testing_session.tester_version}, ${testing_session.test_date},
-					${legacyTestScope}, ${report.version}, ${report.source_file}, NOW()
+					${''}, ${testing_session.test_date},
+					${legacyTestScope}, ${report.version}, ${legacySourceFile}, NOW()
 				)
 				ON CONFLICT (slug) DO UPDATE SET
 					title = EXCLUDED.title,
@@ -303,37 +304,36 @@ export async function saveReport(slug: string, data: ReportData): Promise<void> 
 					updated_at = NOW()
 			`,
 			txn`
-				INSERT INTO project_testing_sessions (
-					project_slug, test_date, minecraft_edition, game_version_tested,
-					device_type, tester_count, tester_version, tester_education_level,
+				INSERT INTO report_testing_sessions (
+					report_slug, test_date, minecraft_edition, game_version_tested,
+					device_type, tester_count, tester_version, tester_level,
 					test_scope, environment
 				) VALUES (
 					${slug}, ${testing_session.test_date}, ${testing_session.minecraft_edition},
 					${testing_session.game_version_tested}, ${testing_session.device_type},
-					${testing_session.tester_count}, ${testing_session.tester_version},
-					${testing_session.tester_education_level}, ${testing_session.test_scope ?? null},
-					${testing_session.environment ?? null}
+					${testing_session.tester_count}, ${''}, ${testing_session.tester_level},
+					${testing_session.test_scope ?? null}, ${testing_session.environment ?? null}
 				)
-				ON CONFLICT (project_slug) DO UPDATE SET
+				ON CONFLICT (report_slug) DO UPDATE SET
 					test_date = EXCLUDED.test_date,
 					minecraft_edition = EXCLUDED.minecraft_edition,
 					game_version_tested = EXCLUDED.game_version_tested,
 					device_type = EXCLUDED.device_type,
 					tester_count = EXCLUDED.tester_count,
 					tester_version = EXCLUDED.tester_version,
-					tester_education_level = EXCLUDED.tester_education_level,
+					tester_level = EXCLUDED.tester_level,
 					test_scope = EXCLUDED.test_scope,
 					environment = EXCLUDED.environment
 			`,
-			txn`DELETE FROM project_severity_guide WHERE project_slug = ${slug}`,
-			txn`DELETE FROM project_clean_levels WHERE project_slug = ${slug}`,
-			txn`DELETE FROM issues WHERE project_slug = ${slug}`
+			txn`DELETE FROM report_severity_guide WHERE report_slug = ${slug}`,
+			txn`DELETE FROM report_clean_levels WHERE report_slug = ${slug}`,
+			txn`DELETE FROM issues WHERE report_slug = ${slug}`
 		];
 
 		for (const [severity, description] of Object.entries(normalized.severity_guide)) {
 			queries.push(
 				txn`
-					INSERT INTO project_severity_guide (project_slug, severity, description)
+					INSERT INTO report_severity_guide (report_slug, severity, description)
 					VALUES (${slug}, ${severity}, ${description})
 				`
 			);
@@ -343,7 +343,7 @@ export async function saveReport(slug: string, data: ReportData): Promise<void> 
 			const level_name = normalized.levels_with_no_issues_recorded[i];
 			queries.push(
 				txn`
-					INSERT INTO project_clean_levels (project_slug, level_name, sort_order)
+					INSERT INTO report_clean_levels (report_slug, level_name, sort_order)
 					VALUES (${slug}, ${level_name}, ${i})
 				`
 			);
@@ -353,7 +353,7 @@ export async function saveReport(slug: string, data: ReportData): Promise<void> 
 			queries.push(
 				txn`
 					INSERT INTO issues (
-						project_slug, id, area, title, severity, category, finding,
+						report_slug, id, area, title, severity, category, finding,
 						expected_result, status, notes, evidence, reason,
 						suggested_text_or_behavior, source_page
 					) VALUES (
@@ -371,7 +371,7 @@ export async function saveReport(slug: string, data: ReportData): Promise<void> 
 				const item = media[i];
 				queries.push(
 					txn`
-						INSERT INTO evidence_media (project_slug, issue_id, type, src, caption, sort_order)
+						INSERT INTO evidence_media (report_slug, issue_id, type, src, caption, sort_order)
 						VALUES (
 							${slug}, ${issue.id}, ${item.type}, ${item.src},
 							${item.caption ?? null}, ${i}
@@ -383,4 +383,172 @@ export async function saveReport(slug: string, data: ReportData): Promise<void> 
 
 		return queries;
 	});
+}
+
+export type ProjectGroupRow = {
+	slug: string;
+	title: string;
+};
+
+export type ProjectGroupStatsRow = {
+	slug: string;
+	title: string;
+	report_count: number;
+	issue_count: number;
+	open_count: number;
+	critical_count: number;
+	resolved_count: number;
+};
+
+export async function listProjectGroups(): Promise<ProjectGroupRow[]> {
+	await ensureReady();
+	const sql = getSql();
+	return (await sql`
+		SELECT slug, title
+		FROM project_groups
+		ORDER BY title
+	`) as ProjectGroupRow[];
+}
+
+export async function projectGroupExists(slug: string): Promise<boolean> {
+	await ensureReady();
+	const sql = getSql();
+	const rows = (await sql`
+		SELECT 1 FROM project_groups WHERE slug = ${slug} LIMIT 1
+	`) as unknown[];
+	return rows.length > 0;
+}
+
+export async function createProjectGroup(slug: string, title: string): Promise<ProjectGroupRow> {
+	await ensureReady();
+	const sql = getSql();
+	const rows = (await sql`
+		INSERT INTO project_groups (slug, title)
+		VALUES (${slug}, ${title})
+		RETURNING slug, title
+	`) as ProjectGroupRow[];
+	return rows[0];
+}
+
+export async function getProjectGroup(slug: string): Promise<ProjectGroupRow | null> {
+	await ensureReady();
+	const sql = getSql();
+	const rows = (await sql`
+		SELECT slug, title FROM project_groups WHERE slug = ${slug}
+	`) as ProjectGroupRow[];
+	return rows[0] ?? null;
+}
+
+export async function listProjectGroupStats(): Promise<ProjectGroupStatsRow[]> {
+	await ensureReady();
+	const sql = getSql();
+	return (await sql`
+		SELECT
+			g.slug,
+			g.title,
+			COUNT(DISTINCT r.slug)::int AS report_count,
+			COUNT(i.id)::int AS issue_count,
+			COUNT(i.id) FILTER (WHERE i.status = 'open' OR i.status = 'in_progress')::int AS open_count,
+			COUNT(i.id) FILTER (WHERE i.severity = 'Critical')::int AS critical_count,
+			COUNT(i.id) FILTER (WHERE i.status = 'fixed' OR i.status = 'wont_fix')::int AS resolved_count
+		FROM project_groups g
+		LEFT JOIN reports r ON r.group_slug = g.slug
+		LEFT JOIN issues i ON i.report_slug = r.slug
+		GROUP BY g.slug, g.title
+		ORDER BY g.title
+	`) as ProjectGroupStatsRow[];
+}
+
+export async function getReportGroupSlug(reportSlug: string): Promise<string | null> {
+	await ensureReady();
+	const sql = getSql();
+	const rows = (await sql`
+		SELECT group_slug FROM reports WHERE slug = ${reportSlug}
+	`) as { group_slug: string | null }[];
+	return rows[0]?.group_slug ?? null;
+}
+
+export async function listReportsInGroup(groupSlug: string): Promise<string[]> {
+	await ensureReady();
+	const sql = getSql();
+	const rows = (await sql`
+		SELECT slug FROM reports WHERE group_slug = ${groupSlug} ORDER BY title
+	`) as { slug: string }[];
+	return rows.map((row) => row.slug);
+}
+
+export async function setReportGroupSlug(
+	reportSlug: string,
+	groupSlug: string | null
+): Promise<void> {
+	await ensureReady();
+	const sql = getSql();
+
+	if (groupSlug) {
+		const groupRows = (await sql`
+			SELECT 1 FROM project_groups WHERE slug = ${groupSlug} LIMIT 1
+		`) as unknown[];
+		if (groupRows.length === 0) {
+			throw new Error(`Group "${groupSlug}" not found`);
+		}
+	}
+
+	const rows = (await sql`
+		UPDATE reports
+		SET group_slug = ${groupSlug}, updated_at = NOW()
+		WHERE slug = ${reportSlug}
+		RETURNING slug
+	`) as { slug: string }[];
+
+	if (rows.length === 0) {
+		throw new Error(`Report "${reportSlug}" not found`);
+	}
+}
+
+export async function listStandaloneReportSlugs(): Promise<string[]> {
+	await ensureReady();
+	const sql = getSql();
+	const rows = (await sql`
+		SELECT slug FROM reports WHERE group_slug IS NULL ORDER BY slug
+	`) as { slug: string }[];
+	return rows.map((row) => row.slug);
+}
+
+export async function getReportWorkflowStatus(slug: string): Promise<ReportWorkflowStatus> {
+	await ensureReady();
+	const sql = getSql();
+	const rows = (await sql`
+		SELECT workflow_status FROM reports WHERE slug = ${slug}
+	`) as { workflow_status: string }[];
+
+	if (rows.length === 0) {
+		throw new Error(`Report "${slug}" not found`);
+	}
+
+	const status = rows[0].workflow_status;
+	if (status === 'open' || status === 'resolved' || status === 'postponed') {
+		return status;
+	}
+
+	return 'open';
+}
+
+export async function updateReportWorkflowStatus(
+	slug: string,
+	status: ReportWorkflowStatus
+): Promise<ReportWorkflowStatus> {
+	await ensureReady();
+	const sql = getSql();
+	const rows = (await sql`
+		UPDATE reports
+		SET workflow_status = ${status}, updated_at = NOW()
+		WHERE slug = ${slug}
+		RETURNING workflow_status
+	`) as { workflow_status: ReportWorkflowStatus }[];
+
+	if (rows.length === 0) {
+		throw new Error(`Report "${slug}" not found`);
+	}
+
+	return rows[0].workflow_status;
 }

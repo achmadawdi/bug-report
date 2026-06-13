@@ -1,37 +1,47 @@
 import { fail, redirect } from '@sveltejs/kit';
+import { reportPath } from '$lib/routes.js';
 import {
 	type IdConflictStrategy,
 	type SlugConflictStrategy,
 	parseImportJson,
 	resolveDuplicateIssueIds
 } from '$lib/import-report.js';
-import { createProject, importProject } from '$lib/server/store.js';
+import { resolveGroupAssignment } from '$lib/server/groups.js';
+import { createReport, importReport } from '$lib/server/store.js';
 import type { Actions } from './$types.js';
 
+async function groupFromForm(formData: FormData): Promise<string | null> {
+	return resolveGroupAssignment(
+		String(formData.get('group_slug') ?? ''),
+		String(formData.get('new_group_name') ?? '')
+	);
+}
+
 export const actions: Actions = {
-	createProject: async ({ request }) => {
+	createReport: async ({ request }) => {
 		const formData = await request.formData();
 		const name = String(formData.get('name') ?? '').trim();
 
 		if (!name) {
-			return fail(400, { message: 'Project name is required.' });
+			return fail(400, { message: 'Report name is required.' });
 		}
 
 		try {
-			const project = await createProject(name);
-			throw redirect(303, `/p/${project.slug}`);
+			const groupSlug = await groupFromForm(formData);
+			const report = await createReport(name, groupSlug);
+			throw redirect(303, reportPath(report.slug));
 		} catch (error) {
 			if (error && typeof error === 'object' && 'status' in error && error.status === 303) {
 				throw error;
 			}
 
 			return fail(500, {
-				message: error instanceof Error ? error.message : 'Failed to create project.'
+				message: error instanceof Error ? error.message : 'Failed to create report.'
 			});
 		}
 	},
 
-	importProject: async ({ request }) => {
+	importReport: async ({ request }) => {
 		const formData = await request.formData();
 		const file = formData.get('file');
 		const name = String(formData.get('name') ?? '').trim() || undefined;
@@ -62,19 +72,22 @@ export const actions: Actions = {
 		};
 
 		try {
-			const project = await importProject(data, {
+			const groupSlug = await groupFromForm(formData);
+			const report = await importReport(data, {
 				name: parsed.title,
+				slug: parsed.slug,
 				slugConflict,
-				idConflict
+				idConflict,
+				groupSlug
 			});
-			throw redirect(303, `/p/${project.slug}`);
+			throw redirect(303, reportPath(report.slug));
 		} catch (error) {
 			if (error && typeof error === 'object' && 'status' in error && error.status === 303) {
 				throw error;
 			}
 
 			return fail(500, {
-				message: error instanceof Error ? error.message : 'Failed to import project.'
+				message: error instanceof Error ? error.message : 'Failed to import report.'
 			});
 		}
 	}

@@ -1,11 +1,26 @@
 <script lang="ts">
 	import type { ReportSummary } from '$lib/types.js';
-	import { SEVERITIES, SEVERITY_STYLES, STATUSES, STATUS_LABELS } from '$lib/constants.js';
+	import type { FilterView } from '$lib/types.js';
+	import {
+		SEVERITIES,
+		SEVERITY_STYLES,
+		STATUSES,
+		STATUS_LABELS,
+		isResolvedStatus
+	} from '$lib/constants.js';
 	import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card/index.js';
 	import { ui } from '$lib/ui-layout.js';
 	import BarChart3Icon from '@lucide/svelte/icons/bar-chart-3';
 
-	let { summary }: { summary: ReportSummary } = $props();
+	let {
+		summary,
+		onViewChange,
+		currentView = 'active'
+	}: {
+		summary: ReportSummary;
+		onViewChange?: (view: FilterView) => void;
+		currentView?: FilterView;
+	} = $props();
 
 	const severityTotal = $derived(
 		SEVERITIES.reduce((acc, severity) => acc + summary.by_severity[severity], 0)
@@ -13,6 +28,11 @@
 	const statusTotal = $derived(
 		STATUSES.reduce((acc, status) => acc + summary.by_status[status], 0)
 	);
+
+	function handleStatusClick(status: (typeof STATUSES)[number]) {
+		if (!onViewChange) return;
+		onViewChange(isResolvedStatus(status) ? 'resolved' : 'active');
+	}
 </script>
 
 <Card size="sm" class={ui.cardPanel}>
@@ -51,7 +71,20 @@
 		</div>
 
 		<div class={ui.field}>
-			<p class={ui.sectionTitle}>By Status</p>
+			<div class="flex items-center justify-between gap-2">
+				<p class={ui.sectionTitle}>By Status</p>
+				{#if onViewChange}
+					<button
+						type="button"
+						class="text-[10px] font-medium text-primary hover:underline {currentView === 'all'
+							? 'underline'
+							: ''}"
+						onclick={() => onViewChange('all')}
+					>
+						View all
+					</button>
+				{/if}
+			</div>
 			<div class="flex h-3 overflow-hidden rounded-full bg-secondary">
 				{#each STATUSES as status}
 					{@const count = summary.by_status[status]}
@@ -72,10 +105,21 @@
 			</div>
 			<div class="grid grid-cols-2 {ui.grid}">
 				{#each STATUSES as status}
-					<div class="flex items-center justify-between text-xs">
-						<span class="text-muted-foreground">{STATUS_LABELS[status]}</span>
-						<span class="font-semibold">{summary.by_status[status]}</span>
-					</div>
+					{#if onViewChange}
+						<button
+							type="button"
+							class="flex items-center justify-between rounded-md px-1 py-0.5 text-xs transition-colors hover:bg-secondary/60"
+							onclick={() => handleStatusClick(status)}
+						>
+							<span class="text-muted-foreground">{STATUS_LABELS[status]}</span>
+							<span class="font-semibold">{summary.by_status[status]}</span>
+						</button>
+					{:else}
+						<div class="flex items-center justify-between text-xs">
+							<span class="text-muted-foreground">{STATUS_LABELS[status]}</span>
+							<span class="font-semibold">{summary.by_status[status]}</span>
+						</div>
+					{/if}
 				{/each}
 			</div>
 		</div>

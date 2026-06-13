@@ -1,5 +1,4 @@
 import { neon } from '@neondatabase/serverless';
-import { parseSchemaStatements, SCHEMA_SQL } from '../src/lib/server/db/schema.js';
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 if (!databaseUrl) {
@@ -7,10 +6,11 @@ if (!databaseUrl) {
 	process.exit(1);
 }
 
-const sql = neon(databaseUrl);
+// Bootstrap client before runMigrations uses getSql()
+process.env.DATABASE_URL = databaseUrl;
 
-for (const statement of parseSchemaStatements(SCHEMA_SQL)) {
-	await sql.query(statement, []);
-}
+const { runMigrations } = await import('../src/lib/server/db/migrate.js');
+
+await runMigrations();
 
 console.log('Database schema applied successfully.');

@@ -2,14 +2,20 @@ import { error, fail } from '@sveltejs/kit';
 import {
 	addEvidenceMedia,
 	addIssue,
-	projectExists,
+	assignReportToGroup,
+	getReportGroupContext,
+	getWorkflowStatus,
+	listAllGroups,
+	reportExists,
 	readReport,
 	removeEvidenceMedia,
 	saveEvidenceFile,
+	setWorkflowStatus,
 	updateIssue,
 	updateIssueStatus,
 	updateReport
 } from '$lib/server/store.js';
+import { resolveGroupAssignment } from '$lib/server/groups.js';
 import { mergeAreas } from '$lib/areas.js';
 import { parseFilters } from '$lib/filters.js';
 import {
@@ -22,27 +28,39 @@ import {
 	issueFormSchema,
 	reportMetaSchema,
 	testingSessionSchema,
-	statusSchema
+	statusSchema,
+	reportWorkflowStatusSchema
 } from '$lib/types.js';
 import type { Actions, PageServerLoad } from './$types.js';
 
 export const load: PageServerLoad = async ({ params, url }) => {
-	if (!(await projectExists(params.project))) {
-		error(404, `Project "${params.project}" not found`);
+	if (!(await reportExists(params.report))) {
+		error(404, `Report "${params.report}" not found`);
 	}
 
 	let report;
 	try {
-		report = await readReport(params.project);
+		report = await readReport(params.report);
 	} catch (err) {
-		console.error(`Failed to load report for project "${params.project}":`, err);
+		console.error(`Failed to load report for "${params.report}":`, err);
 		error(500, 'Report data is invalid');
 	}
 
 	const areas = mergeAreas([...new Set(report.issues.map((issue) => issue.area))]);
 	const initialFilters = parseFilters(url.searchParams, areas);
+	const groupContext = await getReportGroupContext(params.report);
+	const groups = await listAllGroups();
+	const workflowStatus = await getWorkflowStatus(params.report);
 
-	return { report, areas, project: params.project, initialFilters };
+	return {
+		report,
+		areas,
+		reportSlug: params.report,
+		initialFilters,
+		groupContext,
+		groups,
+		workflowStatus
+	};
 };
 
 function parseList(value: FormDataEntryValue | null): string[] {
@@ -85,7 +103,7 @@ export const actions: Actions = {
 		}
 
 		try {
-			const report = await updateIssue(params.project, id, parsed.data);
+			const report = await updateIssue(params.report, id, parsed.data);
 			return { success: true, message: `${id} updated.`, report };
 		} catch (err) {
 			return fail(500, {
@@ -121,7 +139,7 @@ export const actions: Actions = {
 		}
 
 		try {
-			const report = await addIssue(params.project, parsed.data);
+			const report = await addIssue(params.report, parsed.data);
 			return { success: true, message: 'New bug added.', report };
 		} catch (err) {
 			return fail(500, {
@@ -140,7 +158,7 @@ export const actions: Actions = {
 		}
 
 		try {
-			const report = await updateIssueStatus(params.project, id, status.data);
+			const report = await updateIssueStatus(params.report, id, status.data);
 			return { success: true, message: `${id} marked ${status.data}.`, report };
 		} catch (err) {
 			return fail(500, {
@@ -171,8 +189,8 @@ export const actions: Actions = {
 		}
 
 		try {
-			const src = await saveEvidenceFile(params.project, id, file);
-			const report = await addEvidenceMedia(params.project, id, { type, src, caption });
+			const src = await saveEvidenceFile(params.report, id, file);
+			const report = await addEvidenceMedia(params.report, id, { type, src, caption });
 			return { success: true, message: 'Evidence uploaded.', report };
 		} catch (err) {
 			return fail(500, {
@@ -206,7 +224,7 @@ export const actions: Actions = {
 		}
 
 		try {
-			const report = await addEvidenceMedia(params.project, id, { type, src: url, caption });
+			const report = await addEvidenceMedia(params.report, id, { type, src: url, caption });
 			return { success: true, message: 'Evidence link added.', report };
 		} catch (err) {
 			return fail(500, {
@@ -219,12 +237,13 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const testScopeRaw = String(formData.get('test_scope') ?? '').trim();
 		const environmentRaw = String(formData.get('environment') ?? '').trim();
+		const sourceFileRaw = String(formData.get('source_file') ?? '').trim();
 
 		const reportParsed = reportMetaSchema.safeParse({
 			title: String(formData.get('title') ?? ''),
 			type: String(formData.get('type') ?? ''),
 			version: String(formData.get('version') ?? ''),
-			source_file: String(formData.get('source_file') ?? '')
+			source_file: sourceFileRaw === '' ? null : sourceFileRaw
 		});
 
 		const sessionParsed = testingSessionSchema.safeParse({
@@ -233,8 +252,7 @@ export const actions: Actions = {
 			game_version_tested: String(formData.get('game_version_tested') ?? ''),
 			device_type: String(formData.get('device_type') ?? ''),
 			tester_count: Number(formData.get('tester_count')),
-			tester_version: String(formData.get('tester_version') ?? ''),
-			tester_education_level: String(formData.get('tester_education_level') ?? ''),
+			tester_level: String(formData.get('tester_level') ?? ''),
 			test_scope: testScopeRaw === '' ? null : testScopeRaw,
 			environment: environmentRaw === '' ? null : environmentRaw
 		});
@@ -250,10 +268,17 @@ export const actions: Actions = {
 		}
 
 		try {
-			const report = await updateReport(params.project, {
+			const report = await updateReport(params.report, {
 				report: reportParsed.data,
 				testing_session: sessionParsed.data
 			});
+
+			const groupSlug = await resolveGroupAssignment(
+				String(formData.get('group_slug') ?? ''),
+				String(formData.get('new_group_name') ?? '')
+			);
+			await assignReportToGroup(params.report, groupSlug);
+
 			return { success: true, message: 'Report details updated.', report };
 		} catch (err) {
 			return fail(500, {
@@ -272,11 +297,33 @@ export const actions: Actions = {
 		}
 
 		try {
-			const report = await removeEvidenceMedia(params.project, id, src);
+			const report = await removeEvidenceMedia(params.report, id, src);
 			return { success: true, message: 'Evidence removed.', report };
 		} catch (err) {
 			return fail(500, {
 				message: err instanceof Error ? err.message : 'Failed to remove evidence.'
+			});
+		}
+	},
+
+	updateWorkflowStatus: async ({ request, params }) => {
+		const formData = await request.formData();
+		const status = reportWorkflowStatusSchema.safeParse(formData.get('status'));
+
+		if (!status.success) {
+			return fail(400, { message: 'Invalid report status.' });
+		}
+
+		try {
+			const workflowStatus = await setWorkflowStatus(params.report, status.data);
+			return {
+				success: true,
+				message: `Report marked ${status.data}.`,
+				workflowStatus
+			};
+		} catch (err) {
+			return fail(500, {
+				message: err instanceof Error ? err.message : 'Failed to update report status.'
 			});
 		}
 	}

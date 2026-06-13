@@ -5,10 +5,11 @@ import {
 	type Issue,
 	type ReportData,
 	type ReportMeta,
-	type ReportSummary,
+	type ReportSummary as ReportIssueSummary,
 	type ReportView,
 	type Severity,
 	type TestingSession,
+	type ReportWorkflowStatus,
 	reportDataSchema
 } from '$lib/types.js';
 import { SEVERITIES, STATUSES } from '$lib/constants.js';
@@ -18,21 +19,34 @@ import { generateNextBugId } from '$lib/issues.js';
 import {
 	ensureDbReady,
 	getReport as getReportData,
-	listProjectSlugs,
-	reportExists,
+	listReportSlugs,
+	listStandaloneReportSlugs,
+	reportExists as checkReportExists,
 	saveReport,
 	updateIssueStatus as updateIssueStatusDb,
 	saveEvidenceFile as saveEvidenceToR2,
-	deleteEvidenceBySrc
+	deleteEvidenceBySrc,
+	listProjectGroups as listProjectGroupsDb,
+	projectGroupExists,
+	createProjectGroup as createProjectGroupDb,
+	getProjectGroup as getProjectGroupDb,
+	listProjectGroupStats,
+	getReportGroupSlug,
+	listReportsInGroup,
+	setReportGroupSlug as setReportGroupSlugDb,
+	getReportWorkflowStatus,
+	updateReportWorkflowStatus
 } from '$lib/server/storage/index.js';
 
-export type ImportProjectOptions = {
+export type ImportReportOptions = {
 	name?: string;
+	slug?: string;
 	slugConflict: SlugConflictStrategy;
 	idConflict: IdConflictStrategy;
+	groupSlug?: string | null;
 };
 
-export type ProjectSummary = {
+export type ReportSummary = {
 	slug: string;
 	title: string;
 	issueCount: number;
@@ -41,6 +55,26 @@ export type ProjectSummary = {
 	openCount: number;
 	criticalCount: number;
 	fixedCount: number;
+	resolvedCount: number;
+	groupSlug: string | null;
+	groupTitle: string | null;
+	testDate: string;
+	workflowStatus: ReportWorkflowStatus;
+};
+
+export type ProjectGroupSummary = {
+	slug: string;
+	title: string;
+	reportCount: number;
+	issueCount: number;
+	openCount: number;
+	criticalCount: number;
+	resolvedCount: number;
+	reportSlugs: string[];
+};
+
+export type ProjectGroupDetail = ProjectGroupSummary & {
+	reports: ReportSummary[];
 };
 
 const DEFAULT_SEVERITY_GUIDE: Record<string, string> = {
@@ -52,7 +86,7 @@ const DEFAULT_SEVERITY_GUIDE: Record<string, string> = {
 	Low: 'Minor visual, text, formatting, or polish issue.'
 };
 
-function deriveSummary(issues: Issue[]): ReportSummary {
+function deriveSummary(issues: Issue[]): ReportIssueSummary {
 	const by_severity = Object.fromEntries(SEVERITIES.map((s) => [s, 0])) as Record<
 		Severity,
 		number
@@ -104,23 +138,23 @@ export function isValidSlug(slug: string): boolean {
 
 export function validateSlug(slug: string): void {
 	if (!isValidSlug(slug)) {
-		throw new Error('Invalid project slug');
+		throw new Error('Invalid report slug');
 	}
 }
 
 const writeQueues = new Map<string, Promise<unknown>>();
 
-function enqueueProjectWrite<T>(project: string, operation: () => Promise<T>): Promise<T> {
-	const previous = writeQueues.get(project) ?? Promise.resolve();
+function enqueueReportWrite<T>(report: string, operation: () => Promise<T>): Promise<T> {
+	const previous = writeQueues.get(report) ?? Promise.resolve();
 	const next = previous
 		.catch(() => undefined)
 		.then(operation)
 		.finally(() => {
-			if (writeQueues.get(project) === next) {
-				writeQueues.delete(project);
+			if (writeQueues.get(report) === next) {
+				writeQueues.delete(report);
 			}
 		});
-	writeQueues.set(project, next);
+	writeQueues.set(report, next);
 	return next;
 }
 
@@ -131,11 +165,11 @@ export function slugify(name: string): string {
 		.replace(/[^a-z0-9]+/g, '-')
 		.replace(/^-+|-+$/g, '');
 
-	return slug || 'project';
+	return slug || 'report';
 }
 
-async function writeReportData(project: string, data: ReportData): Promise<void> {
-	validateSlug(project);
+async function writeReportData(report: string, data: ReportData): Promise<void> {
+	validateSlug(report);
 
 	const normalized: ReportData = {
 		...data,
@@ -143,7 +177,7 @@ async function writeReportData(project: string, data: ReportData): Promise<void>
 		summary: deriveSummary(data.issues.map(normalizeIssue))
 	};
 
-	await saveReport(project, normalized);
+	await saveReport(report, normalized);
 }
 
 function createEmptyReport(title: string): ReportData {
@@ -151,7 +185,7 @@ function createEmptyReport(title: string): ReportData {
 		title,
 		type: 'QA Testing Report',
 		version: '',
-		source_file: ''
+		source_file: null
 	};
 
 	const testing_session: TestingSession = {
@@ -160,8 +194,7 @@ function createEmptyReport(title: string): ReportData {
 		game_version_tested: '',
 		device_type: 'Windows',
 		tester_count: 1,
-		tester_version: '',
-		tester_education_level: 'Mixed',
+		tester_level: 'Mixed',
 		test_scope: null,
 		environment: null
 	};
@@ -175,49 +208,187 @@ function createEmptyReport(title: string): ReportData {
 	};
 }
 
-export async function ensureProjectsReady(): Promise<void> {
+export async function ensureReportsReady(): Promise<void> {
 	await ensureDbReady();
 }
 
-export async function listProjects(): Promise<ProjectSummary[]> {
+export async function listReports(): Promise<ReportSummary[]> {
 	await ensureDbReady();
 
-	const projects: ProjectSummary[] = [];
+	const reports: ReportSummary[] = [];
 
-	for (const slug of await listProjectSlugs()) {
-		if (!isValidSlug(slug)) continue;
-
-		try {
-			const report = await readReport(slug);
-			projects.push({
-				slug,
-				title: report.report.title,
-				issueCount: report.issues.length,
-				platform: report.testing_session.minecraft_edition,
-				version: report.report.version,
-				openCount: report.summary.by_status.open,
-				criticalCount: report.summary.by_severity.Critical,
-				fixedCount: report.summary.by_status.fixed
-			});
-		} catch {
-			// skip invalid projects
-		}
+	for (const slug of await listReportSlugs()) {
+		const summary = await readReportSummary(slug);
+		if (summary) reports.push(summary);
 	}
 
-	return projects.sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }));
+	return reports.sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }));
 }
 
-export async function projectExists(project: string): Promise<boolean> {
-	if (!isValidSlug(project)) return false;
-	return reportExists(project);
+export async function listStandaloneReports(): Promise<ReportSummary[]> {
+	await ensureDbReady();
+
+	const reports: ReportSummary[] = [];
+
+	for (const slug of await listStandaloneReportSlugs()) {
+		const summary = await readReportSummary(slug);
+		if (summary) reports.push(summary);
+	}
+
+	return reports.sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }));
 }
 
-export async function createProject(name: string): Promise<ProjectSummary> {
+export async function listGroups(): Promise<ProjectGroupSummary[]> {
+	await ensureDbReady();
+
+	const stats = await listProjectGroupStats();
+	const groups: ProjectGroupSummary[] = [];
+
+	for (const row of stats) {
+		const reportSlugs = await listReportsInGroup(row.slug);
+		groups.push({
+			slug: row.slug,
+			title: row.title,
+			reportCount: row.report_count,
+			issueCount: row.issue_count,
+			openCount: row.open_count,
+			criticalCount: row.critical_count,
+			resolvedCount: row.resolved_count,
+			reportSlugs
+		});
+	}
+
+	return groups;
+}
+
+export async function listGroupsWithReports(): Promise<ProjectGroupDetail[]> {
+	const groups = await listGroups();
+	const details: ProjectGroupDetail[] = [];
+
+	for (const group of groups) {
+		const detail = await getGroupWithReports(group.slug);
+		if (detail) details.push(detail);
+	}
+
+	return details;
+}
+
+export async function getGroupWithReports(groupSlug: string): Promise<ProjectGroupDetail | null> {
+	validateSlug(groupSlug);
+	await ensureDbReady();
+
+	const group = await getProjectGroupDb(groupSlug);
+	if (!group) return null;
+
+	const reportSlugs = await listReportsInGroup(groupSlug);
+	const reports: ReportSummary[] = [];
+
+	for (const slug of reportSlugs) {
+		const summary = await readReportSummary(slug);
+		if (summary) reports.push(summary);
+	}
+
+	const rollup = reports.reduce(
+		(acc, report) => ({
+			issueCount: acc.issueCount + report.issueCount,
+			openCount: acc.openCount + report.openCount,
+			criticalCount: acc.criticalCount + report.criticalCount,
+			resolvedCount: acc.resolvedCount + report.resolvedCount
+		}),
+		{ issueCount: 0, openCount: 0, criticalCount: 0, resolvedCount: 0 }
+	);
+
+	return {
+		slug: group.slug,
+		title: group.title,
+		reportCount: reports.length,
+		reportSlugs: reports.map((r) => r.slug),
+		...rollup,
+		reports
+	};
+}
+
+export async function createProjectGroup(name: string): Promise<ProjectGroupSummary> {
 	await ensureDbReady();
 
 	const title = name.trim();
 	if (!title) {
-		throw new Error('Project name is required.');
+		throw new Error('Group name is required.');
+	}
+
+	let slug = slugify(title);
+
+	if (await projectGroupExists(slug)) {
+		let suffix = 2;
+		while (await projectGroupExists(`${slug}-${suffix}`)) {
+			suffix += 1;
+		}
+		slug = `${slug}-${suffix}`;
+	}
+
+	await createProjectGroupDb(slug, title);
+
+	return {
+		slug,
+		title,
+		reportCount: 0,
+		issueCount: 0,
+		openCount: 0,
+		criticalCount: 0,
+		resolvedCount: 0,
+		reportSlugs: []
+	};
+}
+
+export async function assignReportToGroup(
+	reportSlug: string,
+	groupSlug: string | null
+): Promise<void> {
+	validateSlug(reportSlug);
+	if (groupSlug) validateSlug(groupSlug);
+
+	if (!(await checkReportExists(reportSlug))) {
+		throw new Error(`Report "${reportSlug}" not found`);
+	}
+
+	await setReportGroupSlugDb(reportSlug, groupSlug);
+}
+
+export async function listAllGroups(): Promise<ProjectGroupSummary[]> {
+	return listGroups();
+}
+
+export async function getReportGroupContext(reportSlug: string): Promise<{
+	group: ProjectGroupSummary | null;
+	siblingReports: ReportSummary[];
+} | null> {
+	if (!(await reportExists(reportSlug))) return null;
+
+	const groupSlug = await getReportGroupSlug(reportSlug);
+	if (!groupSlug) {
+		return { group: null, siblingReports: [] };
+	}
+
+	const detail = await getGroupWithReports(groupSlug);
+	if (!detail) {
+		return { group: null, siblingReports: [] };
+	}
+
+	const { reports, ...group } = detail;
+	return { group, siblingReports: reports };
+}
+
+export async function reportExists(slug: string): Promise<boolean> {
+	if (!isValidSlug(slug)) return false;
+	return checkReportExists(slug);
+}
+
+export async function createReport(name: string, groupSlug?: string | null): Promise<ReportSummary> {
+	await ensureDbReady();
+
+	const title = name.trim();
+	if (!title) {
+		throw new Error('Report name is required.');
 	}
 
 	let slug = slugify(title);
@@ -233,40 +404,86 @@ export async function createProject(name: string): Promise<ProjectSummary> {
 	const data = createEmptyReport(title);
 	await writeReportData(slug, data);
 
-	return {
-		slug,
-		title,
-		issueCount: 0,
-		platform: '',
-		version: '',
-		openCount: 0,
-		criticalCount: 0,
-		fixedCount: 0
-	};
+	if (groupSlug) {
+		await setReportGroupSlugDb(slug, groupSlug);
+	}
+
+	const summary = await readReportSummary(slug);
+	if (!summary) {
+		throw new Error('Failed to create report.');
+	}
+
+	return summary;
 }
 
-function toProjectSummary(slug: string, report: ReportView): ProjectSummary {
+function toReportSummary(
+	slug: string,
+	report: ReportView,
+	groupSlug: string | null = null,
+	groupTitle: string | null = null,
+	workflowStatus: ReportWorkflowStatus = 'open'
+): ReportSummary {
 	return {
 		slug,
 		title: report.report.title,
 		issueCount: report.issues.length,
 		platform: report.testing_session.minecraft_edition,
 		version: report.report.version,
-		openCount: report.summary.by_status.open,
+		openCount: report.summary.by_status.open + report.summary.by_status.in_progress,
 		criticalCount: report.summary.by_severity.Critical,
-		fixedCount: report.summary.by_status.fixed
+		fixedCount: report.summary.by_status.fixed,
+		resolvedCount: report.summary.by_status.fixed + report.summary.by_status.wont_fix,
+		groupSlug,
+		groupTitle,
+		testDate: report.testing_session.test_date,
+		workflowStatus
 	};
 }
 
-export async function importProject(
+async function readReportSummary(slug: string): Promise<ReportSummary | null> {
+	if (!isValidSlug(slug)) return null;
+
+	try {
+		const report = await readReport(slug);
+		const [groupSlug, workflowStatus] = await Promise.all([
+			getReportGroupSlug(slug),
+			getReportWorkflowStatus(slug)
+		]);
+		let groupTitle: string | null = null;
+		if (groupSlug) {
+			const group = await getProjectGroupDb(groupSlug);
+			groupTitle = group?.title ?? null;
+		}
+		return toReportSummary(slug, report, groupSlug, groupTitle, workflowStatus);
+	} catch {
+		return null;
+	}
+}
+
+export async function getWorkflowStatus(report: string): Promise<ReportWorkflowStatus> {
+	validateSlug(report);
+	await ensureDbReady();
+	return getReportWorkflowStatus(report);
+}
+
+export async function setWorkflowStatus(
+	report: string,
+	status: ReportWorkflowStatus
+): Promise<ReportWorkflowStatus> {
+	validateSlug(report);
+	await ensureDbReady();
+	return updateReportWorkflowStatus(report, status);
+}
+
+export async function importReport(
 	data: ReportData,
-	options: ImportProjectOptions
-): Promise<ProjectSummary> {
+	options: ImportReportOptions
+): Promise<ReportSummary> {
 	await ensureDbReady();
 
 	const title = (options.name ?? data.report.title).trim();
 	if (!title) {
-		throw new Error('Project name is required.');
+		throw new Error('Report name is required.');
 	}
 
 	const duplicateIds = new Set(
@@ -281,12 +498,12 @@ export async function importProject(
 
 	const issues = resolveDuplicateIssueIds(data.issues.map(normalizeIssue), options.idConflict);
 
-	let slug = slugify(title);
+	let slug = isValidSlug(options.slug ?? '') ? options.slug!.trim() : slugify(title);
 	const slugExists = await reportExists(slug);
 
 	if (slugExists) {
 		if (options.slugConflict === 'cancel') {
-			throw new Error(`Project "${slug}" already exists.`);
+			throw new Error(`Report "${slug}" already exists.`);
 		}
 
 		if (options.slugConflict === 'suffix') {
@@ -308,37 +525,43 @@ export async function importProject(
 	};
 
 	await writeReportData(slug, nextData);
+
+	if (options.groupSlug) {
+		await setReportGroupSlugDb(slug, options.groupSlug);
+	}
+
 	const report = toReportView(nextData);
-	return toProjectSummary(slug, report);
+	const summary = await readReportSummary(slug);
+	return summary ?? toReportSummary(slug, report);
 }
 
-export async function readReport(project: string): Promise<ReportView> {
-	validateSlug(project);
+export async function readReport(reportSlug: string): Promise<ReportView> {
+	validateSlug(reportSlug);
 	await ensureDbReady();
 
-	const parsed = await getReportData(project);
+	const parsed = await getReportData(reportSlug);
 	return toReportView(parsed);
 }
 
 export async function updateIssueStatus(
-	project: string,
+	report: string,
 	id: string,
 	status: BugStatus
 ): Promise<ReportView> {
-	return enqueueProjectWrite(project, async () => {
-		validateSlug(project);
-		await updateIssueStatusDb(project, id, status);
-		return readReport(project);
+	return enqueueReportWrite(report, async () => {
+		validateSlug(report);
+		await updateIssueStatusDb(report, id, status);
+		return readReport(report);
 	});
 }
 
 export async function updateIssue(
-	project: string,
+	report: string,
 	id: string,
 	updates: Partial<Issue>
 ): Promise<ReportView> {
-	return enqueueProjectWrite(project, async () => {
-		const current = await readReport(project);
+	return enqueueReportWrite(report, async () => {
+		const current = await readReport(report);
 		const index = current.issues.findIndex((issue) => issue.id === id);
 
 		if (index === -1) {
@@ -362,20 +585,20 @@ export async function updateIssue(
 			issues: nextIssues
 		};
 
-		await writeReportData(project, nextData);
+		await writeReportData(report, nextData);
 		return toReportView(nextData);
 	});
 }
 
 export async function updateReport(
-	project: string,
+	report: string,
 	updates: {
 		report?: Partial<ReportMeta>;
 		testing_session?: Partial<TestingSession>;
 	}
 ): Promise<ReportView> {
-	return enqueueProjectWrite(project, async () => {
-		const current = await readReport(project);
+	return enqueueReportWrite(report, async () => {
+		const current = await readReport(report);
 
 		const nextData: ReportData = {
 			report: {
@@ -391,17 +614,17 @@ export async function updateReport(
 			issues: current.issues
 		};
 
-		await writeReportData(project, reportDataSchema.parse(nextData));
+		await writeReportData(report, reportDataSchema.parse(nextData));
 		return toReportView(nextData);
 	});
 }
 
 export async function addIssue(
-	project: string,
+	report: string,
 	issue: Omit<Issue, 'id'> & { id?: string }
 ): Promise<ReportView> {
-	return enqueueProjectWrite(project, async () => {
-		const current = await readReport(project);
+	return enqueueReportWrite(report, async () => {
+		const current = await readReport(report);
 		const nextId = issue.id ?? generateNextBugId(current.issues);
 
 		const nextIssue = normalizeIssue({
@@ -418,18 +641,18 @@ export async function addIssue(
 			issues: [...current.issues, nextIssue]
 		};
 
-		await writeReportData(project, nextData);
+		await writeReportData(report, nextData);
 		return toReportView(nextData);
 	});
 }
 
 export async function addEvidenceMedia(
-	project: string,
+	report: string,
 	id: string,
 	media: EvidenceMedia
 ): Promise<ReportView> {
-	return enqueueProjectWrite(project, async () => {
-		const current = await readReport(project);
+	return enqueueReportWrite(report, async () => {
+		const current = await readReport(report);
 		const issue = current.issues.find((item) => item.id === id);
 
 		if (!issue) {
@@ -451,25 +674,25 @@ export async function addEvidenceMedia(
 			)
 		};
 
-		await writeReportData(project, nextData);
+		await writeReportData(report, nextData);
 		return toReportView(nextData);
 	});
 }
 
 export async function removeEvidenceMedia(
-	project: string,
+	report: string,
 	id: string,
 	src: string
 ): Promise<ReportView> {
-	return enqueueProjectWrite(project, async () => {
-		const current = await readReport(project);
+	return enqueueReportWrite(report, async () => {
+		const current = await readReport(report);
 		const issue = current.issues.find((item) => item.id === id);
 
 		if (!issue) {
 			throw new Error(`Issue ${id} not found`);
 		}
 
-		await deleteEvidenceBySrc(src, project);
+		await deleteEvidenceBySrc(src, report);
 
 		const nextData: ReportData = {
 			report: current.report,
@@ -486,17 +709,17 @@ export async function removeEvidenceMedia(
 			)
 		};
 
-		await writeReportData(project, nextData);
+		await writeReportData(report, nextData);
 		return toReportView(nextData);
 	});
 }
 
-export async function saveEvidenceFile(project: string, id: string, file: File): Promise<string> {
-	validateSlug(project);
+export async function saveEvidenceFile(report: string, id: string, file: File): Promise<string> {
+	validateSlug(report);
 
 	const extension = path.extname(file.name) || '.bin';
 	const filename = `${id}-${Date.now()}${extension}`;
 	const buffer = Buffer.from(await file.arrayBuffer());
 
-	return saveEvidenceToR2(project, filename, buffer, file.type || undefined);
+	return saveEvidenceToR2(report, filename, buffer, file.type || undefined);
 }

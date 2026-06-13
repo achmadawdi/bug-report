@@ -5,9 +5,14 @@ import {
 	normalizeTestingSession,
 	reportDataInputSchema,
 	reportMetaSchema,
-	testingSessionSchema,
+	reportExportMetadataSchema,
+	deviceTypeSchema,
+	environmentSchema,
+	minecraftEditionSchema,
+	testerLevelSchema,
 	type Issue,
-	type ReportData
+	type ReportData,
+	type LenientReportDataInput
 } from '$lib/types.js';
 
 const DEFAULT_SEVERITY_GUIDE: Record<string, string> = {
@@ -29,16 +34,46 @@ const legacyReportMetaSchema = reportMetaSchema.extend({
 	test_scope: z.string().optional()
 });
 
-const exportPayloadSchema = z.object({
-	issues: z.array(issueSchema).min(1),
-	project: z.string().optional(),
-	exported_at: z.string().optional(),
-	filters: z.unknown().optional(),
-	report: legacyReportMetaSchema.optional(),
-	testing_session: testingSessionSchema.partial().optional(),
-	severity_guide: z.record(z.string(), z.string()).optional(),
-	levels_with_no_issues_recorded: z.array(z.string()).optional()
-});
+function stripNullObjectFields(value: unknown): unknown {
+	if (!value || typeof value !== 'object') return value;
+	const cleaned: Record<string, unknown> = {};
+	for (const [key, field] of Object.entries(value as Record<string, unknown>)) {
+		if (field !== null) cleaned[key] = field;
+	}
+	return cleaned;
+}
+
+const importTestingSessionSchema = z.preprocess(
+	stripNullObjectFields,
+	z
+		.object({
+			test_date: z.string().optional(),
+			minecraft_edition: z.union([minecraftEditionSchema, z.string()]).optional(),
+			game_version_tested: z.string().optional(),
+			device_type: z.union([deviceTypeSchema, z.string()]).optional(),
+			tester_count: z.number().optional(),
+			tester_level: z.union([testerLevelSchema, z.string()]).optional(),
+			test_scope: z.string().nullable().optional(),
+			environment: z.union([environmentSchema, z.string()]).optional(),
+			tester_education_level: z.string().optional()
+		})
+		.partial()
+		.optional()
+);
+
+const importReportDataInputSchema = reportDataInputSchema
+	.omit({ testing_session: true })
+	.extend({ testing_session: importTestingSessionSchema });
+
+const exportPayloadSchema = z
+	.object({
+		issues: z.array(issueSchema).min(1),
+		report: legacyReportMetaSchema.optional(),
+		severity_guide: z.record(z.string(), z.string()).optional(),
+		levels_with_no_issues_recorded: z.array(z.string()).optional()
+	})
+	.extend({ testing_session: importTestingSessionSchema })
+	.merge(reportExportMetadataSchema);
 
 export type ImportParseSuccess = {
 	ok: true;
@@ -67,7 +102,28 @@ export function slugify(name: string): string {
 		.replace(/[^a-z0-9]+/g, '-')
 		.replace(/^-+|-+$/g, '');
 
-	return slug || 'project';
+	return slug || 'report';
+}
+
+function isValidImportSlug(slug: string): boolean {
+	return Boolean(slug && !slug.includes('..') && !slug.includes('/') && !slug.includes('\\'));
+}
+
+function resolveSlugHint(...candidates: (string | undefined)[]): string | undefined {
+	for (const candidate of candidates) {
+		const value = candidate?.trim();
+		if (value && isValidImportSlug(value)) return value;
+	}
+	return undefined;
+}
+
+function extractSlugHint(json: unknown): string | undefined {
+	if (!json || typeof json !== 'object') return undefined;
+	const record = json as Record<string, unknown>;
+	return resolveSlugHint(
+		typeof record.report_slug === 'string' ? record.report_slug : undefined,
+		typeof record.project === 'string' ? record.project : undefined
+	);
 }
 
 export function detectDuplicateIssueIds(issues: Pick<Issue, 'id'>[]): string[] {
@@ -85,12 +141,35 @@ export function detectDuplicateIssueIds(issues: Pick<Issue, 'id'>[]): string[] {
 	return [...duplicates];
 }
 
+function formatImportErrors(error: z.ZodError): string[] {
+	return error.issues.map((issue) => {
+		const path = issue.path.length > 0 ? issue.path.join('.') : 'root';
+		return `${path}: ${issue.message}`;
+	});
+}
+
+function summarizeImportFailure(reportError: z.ZodError, exportError: z.ZodError): string[] {
+	const details = [...formatImportErrors(reportError), ...formatImportErrors(exportError)];
+	const unique = [...new Set(details)];
+
+	if (unique.length === 0) {
+		return [
+			'Unrecognized format. Expected a full report.json file or an export payload with an issues array.'
+		];
+	}
+
+	return [
+		'Could not import this JSON. The file looks like a report export, but some fields are invalid or use null values where the app expects enums or text.',
+		...unique.slice(0, 6)
+	];
+}
+
 export function createReportFromExport(
 	issues: Issue[],
 	title: string,
 	extras?: {
 		report?: z.infer<typeof legacyReportMetaSchema>;
-		testing_session?: Partial<ReportData['testing_session']>;
+		testing_session?: LenientReportDataInput['testing_session'];
 		severity_guide?: ReportData['severity_guide'];
 		levels_with_no_issues_recorded?: ReportData['levels_with_no_issues_recorded'];
 	}
@@ -101,17 +180,18 @@ export function createReportFromExport(
 		version_tested: legacy?.version_tested,
 		device: legacy?.device,
 		tester: legacy?.tester,
-		tester_version: legacy?.tester_version,
 		test_date: legacy?.test_date,
 		test_scope: legacy?.test_scope
 	});
+
+	const sourceFile = legacy?.source_file?.trim() ? legacy.source_file : null;
 
 	return {
 		report: {
 			title,
 			type: legacy?.type ?? 'QA Testing Report',
 			version: legacy?.version ?? '',
-			source_file: legacy?.source_file ?? ''
+			source_file: sourceFile
 		},
 		testing_session,
 		severity_guide: extras?.severity_guide ?? { ...DEFAULT_SEVERITY_GUIDE },
@@ -129,12 +209,12 @@ export function parseImportJson(text: string, nameOverride?: string): ImportPars
 		return { ok: false, errors: ['Invalid JSON.'] };
 	}
 
-	const reportResult = reportDataInputSchema.safeParse(json);
+	const reportResult = importReportDataInputSchema.safeParse(json);
 	if (reportResult.success) {
 		try {
 			const data = normalizeReportData(reportResult.data);
 			const title = nameOverride?.trim() || data.report.title;
-			return buildSuccess('report', data, title);
+			return buildSuccess('report', data, title, extractSlugHint(json));
 		} catch (err) {
 			return {
 				ok: false,
@@ -145,10 +225,14 @@ export function parseImportJson(text: string, nameOverride?: string): ImportPars
 
 	const exportResult = exportPayloadSchema.safeParse(json);
 	if (exportResult.success) {
+		const slugHint = resolveSlugHint(
+			exportResult.data.report_slug,
+			exportResult.data.project
+		);
 		const title =
 			nameOverride?.trim() ||
 			exportResult.data.report?.title ||
-			exportResult.data.project?.trim() ||
+			slugHint ||
 			'Imported QA Report';
 		const data = createReportFromExport(exportResult.data.issues, title, {
 			report: exportResult.data.report,
@@ -156,18 +240,21 @@ export function parseImportJson(text: string, nameOverride?: string): ImportPars
 			severity_guide: exportResult.data.severity_guide,
 			levels_with_no_issues_recorded: exportResult.data.levels_with_no_issues_recorded
 		});
-		return buildSuccess('export', data, title);
+		return buildSuccess('export', data, title, slugHint);
 	}
 
 	return {
 		ok: false,
-		errors: [
-			'Unrecognized format. Expected a full report.json file or an export payload with an issues array.'
-		]
+		errors: summarizeImportFailure(reportResult.error, exportResult.error)
 	};
 }
 
-function buildSuccess(kind: 'report' | 'export', data: ReportData, title: string): ImportParseSuccess {
+function buildSuccess(
+	kind: 'report' | 'export',
+	data: ReportData,
+	title: string,
+	slugHint?: string
+): ImportParseSuccess {
 	const normalized: ReportData = {
 		...data,
 		report: {
@@ -176,13 +263,15 @@ function buildSuccess(kind: 'report' | 'export', data: ReportData, title: string
 		}
 	};
 
+	const slug = slugHint ?? slugify(title);
+
 	return {
 		ok: true,
 		kind,
 		data: normalized,
 		duplicateIds: detectDuplicateIssueIds(normalized.issues),
 		title,
-		slug: slugify(title),
+		slug,
 		issueCount: normalized.issues.length
 	};
 }

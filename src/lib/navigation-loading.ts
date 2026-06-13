@@ -1,9 +1,10 @@
 import { navigating } from '$app/state';
+import { REPORT_PATH_RE } from '$lib/routes.js';
 
-/** True when navigating to a project dashboard (`/p/:slug`). */
-export function isNavigatingToProject() {
+/** True when navigating to a report dashboard (`/report/:slug`). */
+export function isNavigatingToReport() {
 	const pathname = navigating.to?.url.pathname;
-	return pathname != null && /^\/p\/[^/]+$/.test(pathname);
+	return pathname != null && REPORT_PATH_RE.test(pathname);
 }
 
 /** True when navigating to the home page (`/`). */
