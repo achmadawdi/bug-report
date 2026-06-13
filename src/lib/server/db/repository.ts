@@ -1,5 +1,5 @@
 import type { BugStatus, EvidenceMedia, Issue, ReportData } from '$lib/types.js';
-import { reportDataSchema } from '$lib/types.js';
+import { normalizeTestingSession, parseReportData, reportDataSchema } from '$lib/types.js';
 import { getBundledSeedProjects } from '$lib/server/storage/seed.js';
 import { getSql } from './client.js';
 import { runMigrations } from './migrate.js';
@@ -19,6 +19,18 @@ type ProjectRow = {
 	test_scope: string;
 	version: string;
 	source_file: string;
+};
+
+type TestingSessionRow = {
+	test_date: string;
+	minecraft_edition: string;
+	game_version_tested: string;
+	device_type: string;
+	tester_count: number;
+	tester_version: string;
+	tester_education_level: string;
+	test_scope: string | null;
+	environment: string | null;
 };
 
 type SeverityRow = {
@@ -60,13 +72,13 @@ async function seedFromBundledData(): Promise<void> {
 	seeded = true;
 
 	const sql = getSql();
-	const countRows = await sql`SELECT COUNT(*)::int AS count FROM projects`;
+	const countRows = (await sql`SELECT COUNT(*)::int AS count FROM projects`) as { count: number }[];
 	const count = countRows[0]?.count ?? 0;
 	if (count > 0) return;
 
 	const seeds = getBundledSeedProjects();
 	for (const { slug, json } of seeds) {
-		const data = reportDataSchema.parse(JSON.parse(json));
+		const data = parseReportData(JSON.parse(json));
 		await saveReport(slug, data);
 	}
 }
@@ -79,27 +91,57 @@ export async function ensureReady(): Promise<void> {
 export async function listProjectSlugs(): Promise<string[]> {
 	await ensureReady();
 	const sql = getSql();
-	const rows = await sql`SELECT slug FROM projects ORDER BY slug`;
-	return rows.map((row) => row.slug as string);
+	const rows = (await sql`SELECT slug FROM projects ORDER BY slug`) as { slug: string }[];
+	return rows.map((row) => row.slug);
 }
 
 export async function reportExists(slug: string): Promise<boolean> {
 	await ensureReady();
 	const sql = getSql();
-	const rows = await sql`SELECT 1 FROM projects WHERE slug = ${slug} LIMIT 1`;
+	const rows = (await sql`SELECT 1 FROM projects WHERE slug = ${slug} LIMIT 1`) as unknown[];
 	return rows.length > 0;
+}
+
+function buildTestingSession(
+	project: ProjectRow,
+	sessionRow: TestingSessionRow | undefined
+): ReportData['testing_session'] {
+	if (sessionRow) {
+		return normalizeTestingSession({
+			test_date: sessionRow.test_date,
+			minecraft_edition: sessionRow.minecraft_edition as ReportData['testing_session']['minecraft_edition'],
+			game_version_tested: sessionRow.game_version_tested,
+			device_type: sessionRow.device_type as ReportData['testing_session']['device_type'],
+			tester_count: sessionRow.tester_count,
+			tester_version: sessionRow.tester_version,
+			tester_education_level:
+				sessionRow.tester_education_level as ReportData['testing_session']['tester_education_level'],
+			test_scope: sessionRow.test_scope,
+			environment: sessionRow.environment as ReportData['testing_session']['environment']
+		});
+	}
+
+	return normalizeTestingSession(undefined, {
+		platform: project.platform,
+		version_tested: project.version_tested,
+		device: project.device,
+		tester: project.tester,
+		tester_version: project.tester_version,
+		test_date: project.test_date,
+		test_scope: project.test_scope
+	});
 }
 
 export async function getReport(slug: string): Promise<ReportData> {
 	await ensureReady();
 	const sql = getSql();
 
-	const projectRows = await sql`
+	const projectRows = (await sql`
 		SELECT slug, title, type, platform, version_tested, device, tester,
 			tester_version, test_date, test_scope, version, source_file
 		FROM projects
 		WHERE slug = ${slug}
-	`;
+	`) as ProjectRow[];
 
 	if (projectRows.length === 0) {
 		throw new Error(`Project "${slug}" not found`);
@@ -107,45 +149,50 @@ export async function getReport(slug: string): Promise<ReportData> {
 
 	const project = projectRows[0] as ProjectRow;
 
-	const severityRows = await sql`
+	const sessionRows = (await sql`
+		SELECT test_date, minecraft_edition, game_version_tested, device_type,
+			tester_count, tester_version, tester_education_level, test_scope, environment
+		FROM project_testing_sessions
+		WHERE project_slug = ${slug}
+	`) as TestingSessionRow[];
+
+	const severityRows = (await sql`
 		SELECT severity, description
 		FROM project_severity_guide
 		WHERE project_slug = ${slug}
-	`;
+	`) as SeverityRow[];
 
-	const cleanLevelRows = await sql`
+	const cleanLevelRows = (await sql`
 		SELECT level_name, sort_order
 		FROM project_clean_levels
 		WHERE project_slug = ${slug}
 		ORDER BY sort_order, level_name
-	`;
+	`) as CleanLevelRow[];
 
-	const issueRows = await sql`
+	const issueRows = (await sql`
 		SELECT id, area, title, severity, category, finding, expected_result,
 			status, notes, evidence, reason, suggested_text_or_behavior, source_page
 		FROM issues
 		WHERE project_slug = ${slug}
 		ORDER BY id
-	`;
+	`) as IssueRow[];
 
-	const evidenceRows = await sql`
+	const evidenceRows = (await sql`
 		SELECT issue_id, type, src, caption, sort_order
 		FROM evidence_media
 		WHERE project_slug = ${slug}
 		ORDER BY issue_id, sort_order, id
-	`;
+	`) as EvidenceRow[];
 
 	const severity_guide: Record<string, string> = {};
-	for (const row of severityRows as SeverityRow[]) {
+	for (const row of severityRows) {
 		severity_guide[row.severity] = row.description;
 	}
 
-	const levels_with_no_issues_recorded = (cleanLevelRows as CleanLevelRow[]).map(
-		(row) => row.level_name
-	);
+	const levels_with_no_issues_recorded = cleanLevelRows.map((row) => row.level_name);
 
 	const evidenceByIssue = new Map<string, EvidenceMedia[]>();
-	for (const row of evidenceRows as EvidenceRow[]) {
+	for (const row of evidenceRows) {
 		const media: EvidenceMedia = {
 			type: row.type as EvidenceMedia['type'],
 			src: row.src,
@@ -156,7 +203,7 @@ export async function getReport(slug: string): Promise<ReportData> {
 		evidenceByIssue.set(row.issue_id, list);
 	}
 
-	const issues: Issue[] = (issueRows as IssueRow[]).map((row) => {
+	const issues: Issue[] = issueRows.map((row) => {
 		const issue: Issue = {
 			id: row.id,
 			area: row.area,
@@ -180,20 +227,16 @@ export async function getReport(slug: string): Promise<ReportData> {
 		return issue;
 	});
 
+	const testing_session = buildTestingSession(project, sessionRows[0]);
+
 	const data: ReportData = {
 		report: {
 			title: project.title,
-			type: project.type,
-			platform: project.platform,
-			version_tested: project.version_tested,
-			device: project.device,
-			tester: project.tester,
-			tester_version: project.tester_version,
-			test_date: project.test_date,
-			test_scope: project.test_scope,
+			type: project.type as ReportData['report']['type'],
 			version: project.version,
 			source_file: project.source_file
 		},
+		testing_session,
 		severity_guide,
 		levels_with_no_issues_recorded,
 		issues
@@ -209,12 +252,12 @@ export async function updateIssueStatus(
 ): Promise<void> {
 	await ensureReady();
 	const sql = getSql();
-	const rows = await sql`
+	const rows = (await sql`
 		UPDATE issues
 		SET status = ${status}
 		WHERE project_slug = ${slug} AND id = ${issueId}
 		RETURNING id
-	`;
+	`) as { id: string }[];
 
 	if (rows.length === 0) {
 		throw new Error(`Issue "${issueId}" not found`);
@@ -225,7 +268,13 @@ export async function saveReport(slug: string, data: ReportData): Promise<void> 
 	await ensureReady();
 	const sql = getSql();
 	const normalized = reportDataSchema.parse(data);
-	const { report } = normalized;
+	const { report, testing_session } = normalized;
+
+	const legacyPlatform = testing_session.minecraft_edition;
+	const legacyVersionTested = testing_session.game_version_tested;
+	const legacyDevice = testing_session.device_type;
+	const legacyTester = String(testing_session.tester_count);
+	const legacyTestScope = testing_session.test_scope ?? '';
 
 	await sql.transaction((txn) => {
 		const queries = [
@@ -234,10 +283,10 @@ export async function saveReport(slug: string, data: ReportData): Promise<void> 
 					slug, title, type, platform, version_tested, device, tester,
 					tester_version, test_date, test_scope, version, source_file, updated_at
 				) VALUES (
-					${slug}, ${report.title}, ${report.type}, ${report.platform},
-					${report.version_tested}, ${report.device}, ${report.tester},
-					${report.tester_version}, ${report.test_date}, ${report.test_scope},
-					${report.version}, ${report.source_file}, NOW()
+					${slug}, ${report.title}, ${report.type}, ${legacyPlatform},
+					${legacyVersionTested}, ${legacyDevice}, ${legacyTester},
+					${testing_session.tester_version}, ${testing_session.test_date},
+					${legacyTestScope}, ${report.version}, ${report.source_file}, NOW()
 				)
 				ON CONFLICT (slug) DO UPDATE SET
 					title = EXCLUDED.title,
@@ -252,6 +301,29 @@ export async function saveReport(slug: string, data: ReportData): Promise<void> 
 					version = EXCLUDED.version,
 					source_file = EXCLUDED.source_file,
 					updated_at = NOW()
+			`,
+			txn`
+				INSERT INTO project_testing_sessions (
+					project_slug, test_date, minecraft_edition, game_version_tested,
+					device_type, tester_count, tester_version, tester_education_level,
+					test_scope, environment
+				) VALUES (
+					${slug}, ${testing_session.test_date}, ${testing_session.minecraft_edition},
+					${testing_session.game_version_tested}, ${testing_session.device_type},
+					${testing_session.tester_count}, ${testing_session.tester_version},
+					${testing_session.tester_education_level}, ${testing_session.test_scope ?? null},
+					${testing_session.environment ?? null}
+				)
+				ON CONFLICT (project_slug) DO UPDATE SET
+					test_date = EXCLUDED.test_date,
+					minecraft_edition = EXCLUDED.minecraft_edition,
+					game_version_tested = EXCLUDED.game_version_tested,
+					device_type = EXCLUDED.device_type,
+					tester_count = EXCLUDED.tester_count,
+					tester_version = EXCLUDED.tester_version,
+					tester_education_level = EXCLUDED.tester_education_level,
+					test_scope = EXCLUDED.test_scope,
+					environment = EXCLUDED.environment
 			`,
 			txn`DELETE FROM project_severity_guide WHERE project_slug = ${slug}`,
 			txn`DELETE FROM project_clean_levels WHERE project_slug = ${slug}`,

@@ -162,7 +162,7 @@
 												<button
 													{...props}
 													type="button"
-													disabled={statusUpdating || props.disabled}
+													disabled={statusUpdating || Boolean(props.disabled)}
 													aria-busy={statusUpdating}
 													class={cn(
 														badgeVariants({ variant: 'outline' }),

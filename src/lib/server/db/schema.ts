@@ -2,7 +2,8 @@ export const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS projects (
 	slug TEXT PRIMARY KEY,
 	title TEXT NOT NULL,
-	type TEXT NOT NULL DEFAULT 'QA Testing Report',
+	type TEXT NOT NULL DEFAULT 'QA Testing Report'
+		CHECK (type IN ('QA Testing Report', 'Regression Report', 'Smoke Test Report', 'Bug Report')),
 	platform TEXT NOT NULL DEFAULT '',
 	version_tested TEXT NOT NULL DEFAULT '',
 	device TEXT NOT NULL DEFAULT '',
@@ -14,6 +15,38 @@ CREATE TABLE IF NOT EXISTS projects (
 	source_file TEXT NOT NULL DEFAULT '',
 	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 	updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS project_testing_sessions (
+	project_slug TEXT PRIMARY KEY REFERENCES projects (slug) ON DELETE CASCADE,
+	test_date TEXT NOT NULL,
+	minecraft_edition TEXT NOT NULL,
+	game_version_tested TEXT NOT NULL,
+	device_type TEXT NOT NULL,
+	tester_count INTEGER NOT NULL,
+	tester_version TEXT NOT NULL,
+	tester_education_level TEXT NOT NULL,
+	test_scope TEXT,
+	environment TEXT,
+	CONSTRAINT project_testing_sessions_test_date_format_check
+		CHECK (test_date ~ '^\d{4}-\d{2}-\d{2}$'),
+	CONSTRAINT project_testing_sessions_minecraft_edition_check
+		CHECK (minecraft_edition IN ('Education', 'Bedrock', 'Java', 'Legacy')),
+	CONSTRAINT project_testing_sessions_device_type_check
+		CHECK (device_type IN ('Windows', 'Mac', 'Android', 'iOS', 'iPad', 'Chromebook', 'Other')),
+	CONSTRAINT project_testing_sessions_tester_count_check
+		CHECK (tester_count >= 1),
+	CONSTRAINT project_testing_sessions_tester_education_level_check
+		CHECK (tester_education_level IN (
+			'Primary',
+			'Middle School',
+			'High School',
+			'University',
+			'Adult / Professional',
+			'Mixed'
+		)),
+	CONSTRAINT project_testing_sessions_environment_check
+		CHECK (environment IS NULL OR environment IN ('Development', 'Staging', 'Production'))
 );
 
 CREATE TABLE IF NOT EXISTS project_severity_guide (

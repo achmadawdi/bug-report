@@ -2,15 +2,19 @@
   "report": {
     "title": "Gauntlet Minigames - QA Version Pre-Release V1.0.0",
     "type": "QA Testing Report",
-    "platform": "Minecraft Education Edition",
-    "version_tested": "1.21.133",
-    "device": "Windows Desktop",
-    "tester": "2 User",
-    "tester_version": "Minecraft Education Edition 1.21.133",
-    "test_date": "2026-06-11",
-    "test_scope": "Level progression, UI, puzzle logic, combat behavior, multiplayer flow, and session recovery",
     "version": "Pre-Release V1.0.0",
     "source_file": "Gauntlet Minigames - QA Version Pre-Release V1.0.0.pdf"
+  },
+  "testing_session": {
+    "test_date": "2026-06-11",
+    "minecraft_edition": "Education",
+    "game_version_tested": "1.21.133",
+    "device_type": "Windows",
+    "tester_count": 2,
+    "tester_version": "Minecraft Education Edition 1.21.133",
+    "tester_education_level": "Mixed",
+    "test_scope": "Level progression, UI, puzzle logic, combat behavior, multiplayer flow, and session recovery",
+    "environment": null
   },
   "severity_guide": {
     "Critical": "Blocks progression, causes softlock, breaks level completion, or prevents the game from continuing properly.",

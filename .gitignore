@@ -24,3 +24,6 @@ vite.config.ts.timestamp-*
 
 # Uploaded evidence media
 static/evidence/
+
+# Local planning docs
+plans/
