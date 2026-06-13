@@ -1,6 +1,6 @@
-import { SEVERITY_ORDER } from './constants.js';
+import { ACTIVE_STATUSES, FILTER_VIEWS, RESOLVED_STATUSES, SEVERITY_ORDER } from './constants.js';
 import { severitySchema, statusSchema } from './types.js';
-import type { FilterState, Issue, SortOption } from './types.js';
+import type { FilterState, FilterView, Issue, SortOption } from './types.js';
 
 const SORT_OPTIONS: SortOption[] = ['id-asc', 'id-desc', 'severity', 'level', 'status'];
 
@@ -61,6 +61,17 @@ export function sortIssues(issues: Issue[], sort: SortOption): Issue[] {
 	}
 }
 
+function matchesView(issue: Issue, view: FilterView): boolean {
+	switch (view) {
+		case 'active':
+			return ACTIVE_STATUSES.includes(issue.status);
+		case 'resolved':
+			return RESOLVED_STATUSES.includes(issue.status);
+		default:
+			return true;
+	}
+}
+
 export function filterIssues(
 	issues: Issue[],
 	filters: FilterState,
@@ -74,6 +85,10 @@ export function filterIssues(
 
 	return sortIssues(
 		issues.filter((issue) => {
+			if (!matchesView(issue, filters.view)) {
+				return false;
+			}
+
 			if (filters.severity !== 'all' && issue.severity !== filters.severity) {
 				return false;
 			}
@@ -107,6 +122,7 @@ export function parseFilters(
 	const statusParam = searchParams.get('status');
 	const sortParam = searchParams.get('sort');
 	const areaParam = searchParams.get('area');
+	const viewParam = searchParams.get('view');
 
 	const severity =
 		severityParam && severityParam !== 'all' && severitySchema.safeParse(severityParam).success
@@ -123,6 +139,11 @@ export function parseFilters(
 			? (sortParam as SortOption)
 			: 'id-asc';
 
+	const view =
+		viewParam && FILTER_VIEWS.includes(viewParam as FilterView)
+			? (viewParam as FilterView)
+			: 'active';
+
 	let area: FilterState['area'] = 'all';
 	if (areaParam && areaParam !== 'all') {
 		area =
@@ -136,7 +157,8 @@ export function parseFilters(
 		severity,
 		area,
 		status,
-		sort
+		sort,
+		view
 	};
 }
 
@@ -149,6 +171,7 @@ export function filtersToSearchParams(filters: FilterState): URLSearchParams {
 	if (filters.area !== 'all') params.set('area', filters.area);
 	if (filters.status !== 'all') params.set('status', filters.status);
 	if (filters.sort !== 'id-asc') params.set('sort', filters.sort);
+	if (filters.view !== 'active') params.set('view', filters.view);
 
 	return params;
 }
@@ -159,7 +182,8 @@ export function isFiltersActive(filters: FilterState): boolean {
 		filters.severity !== 'all' ||
 		filters.area !== 'all' ||
 		filters.status !== 'all' ||
-		filters.sort !== 'id-asc'
+		filters.sort !== 'id-asc' ||
+		filters.view !== 'active'
 	);
 }
 
@@ -169,6 +193,7 @@ export function clearFilters(): FilterState {
 		severity: 'all',
 		area: 'all',
 		status: 'all',
-		sort: 'id-asc'
+		sort: 'id-asc',
+		view: 'active'
 	};
 }

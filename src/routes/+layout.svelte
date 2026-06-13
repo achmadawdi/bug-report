@@ -20,7 +20,7 @@
 
 <div class="dark min-h-screen bg-background text-foreground">
 	<NavigationProgressBar />
-	<TabBar projects={data.projects} />
+	<TabBar projects={data.projects} groups={data.groups} />
 	{@render children()}
 </div>
 

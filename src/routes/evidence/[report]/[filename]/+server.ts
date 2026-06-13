@@ -20,9 +20,9 @@ const MIME_BY_EXT: Record<string, string> = {
 };
 
 export const GET: RequestHandler = async ({ params }) => {
-	const { project, filename } = params;
+	const { report, filename } = params;
 
-	if (!isValidSlug(project) || !filename || filename.includes('..') || filename.includes('/')) {
+	if (!isValidSlug(report) || !filename || filename.includes('..') || filename.includes('/')) {
 		return new Response('Invalid evidence path', { status: 400 });
 	}
 
@@ -31,6 +31,6 @@ export const GET: RequestHandler = async ({ params }) => {
 		return new Response('Unsupported evidence file type', { status: 415 });
 	}
 
-	const url = getPublicEvidenceUrl(project, filename);
+	const url = getPublicEvidenceUrl(report, filename);
 	redirect(302, url);
 };

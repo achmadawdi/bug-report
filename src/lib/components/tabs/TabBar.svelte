@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { parseReportSlug, reportPath } from '$lib/routes.js';
 	import { preloadRoute } from '$lib/preload.js';
 	import { page } from '$app/stores';
-	import type { ProjectSummary } from '$lib/server/store.js';
+	import type { ProjectGroupSummary, ReportSummary } from '$lib/server/store.js';
 	import {
 		loadOpenTabs,
 		removeTab,
@@ -11,22 +12,21 @@
 		type OpenTab
 	} from '$lib/tabs.js';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import OpenProjectDialog from './OpenProjectDialog.svelte';
+	import OpenReportDialog from './OpenReportDialog.svelte';
 	import HomeIcon from '@lucide/svelte/icons/home';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import XIcon from '@lucide/svelte/icons/x';
 
-	let { projects }: { projects: ProjectSummary[] } = $props();
+	let { projects, groups = [] }: { projects: ReportSummary[]; groups?: ProjectGroupSummary[] } =
+		$props();
 
 	let openTabs = $state<OpenTab[]>([]);
 	let openDialog = $state(false);
 
-	const activeSlug = $derived(
-		$page.url.pathname.match(/^\/p\/([^/]+)/)?.[1] ?? null
-	);
+	const activeSlug = $derived(parseReportSlug($page.url.pathname));
 	const isHome = $derived($page.url.pathname === '/');
 
-	const projectMap = $derived(new Map(projects.map((project) => [project.slug, project])));
+	const reportMap = $derived(new Map(projects.map((report) => [report.slug, report])));
 
 	$effect(() => {
 		openTabs = loadOpenTabs();
@@ -35,10 +35,10 @@
 	$effect(() => {
 		if (!activeSlug) return;
 
-		const project = projectMap.get(activeSlug);
-		if (!project) return;
+		const report = reportMap.get(activeSlug);
+		if (!report) return;
 
-		const next = upsertTab(openTabs, { slug: project.slug, title: project.title });
+		const next = upsertTab(openTabs, { slug: report.slug, title: report.title });
 		if (JSON.stringify(next) !== JSON.stringify(openTabs)) {
 			openTabs = next;
 			saveOpenTabs(next);
@@ -47,7 +47,7 @@
 
 	function selectTab(slug: string) {
 		if (slug === activeSlug) return;
-		goto(`/p/${slug}`);
+		goto(reportPath(slug));
 	}
 
 	function closeTab(event: MouseEvent, slug: string) {
@@ -64,7 +64,7 @@
 
 		if (nextTabs.length > 0) {
 			const nextIndex = Math.min(index, nextTabs.length - 1);
-			goto(`/p/${nextTabs[nextIndex].slug}`);
+			goto(reportPath(nextTabs[nextIndex].slug));
 			return;
 		}
 
@@ -79,7 +79,7 @@
 				variant="ghost"
 				size="icon-sm"
 				class="size-7 {isHome ? 'bg-secondary text-foreground' : ''}"
-				aria-label="Project list"
+				aria-label="Report list"
 				onpointerenter={() => preloadRoute('/')}
 				onfocus={() => preloadRoute('/')}
 				onclick={() => goto('/')}
@@ -90,7 +90,7 @@
 				variant="ghost"
 				size="icon-sm"
 				class="size-7"
-				aria-label="Open project"
+				aria-label="Open report"
 				onclick={() => (openDialog = true)}
 			>
 				<PlusIcon class="size-4" />
@@ -107,8 +107,8 @@
 					class="group relative flex max-w-[220px] min-w-[120px] cursor-pointer items-center border-r border-border border-b-2 px-3 text-sm transition-colors {isActive
 						? 'border-b-primary text-foreground'
 						: 'border-b-transparent text-muted-foreground hover:text-foreground'}"
-					onpointerenter={() => preloadRoute(`/p/${tab.slug}`)}
-					onfocus={() => preloadRoute(`/p/${tab.slug}`)}
+					onpointerenter={() => preloadRoute(reportPath(tab.slug))}
+					onfocus={() => preloadRoute(reportPath(tab.slug))}
 					onclick={() => selectTab(tab.slug)}
 					onkeydown={(event) => {
 						if (event.key === 'Enter' || event.key === ' ') {
@@ -134,4 +134,4 @@
 	</div>
 </header>
 
-<OpenProjectDialog bind:open={openDialog} {projects} />
+<OpenReportDialog bind:open={openDialog} {projects} {groups} />

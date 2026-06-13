@@ -27,7 +27,9 @@
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import Loader2Icon from '@lucide/svelte/icons/loader-2';
+	import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
 	import { ui } from '$lib/ui-layout.js';
+	import { isResolvedStatus } from '$lib/constants.js';
 
 	let {
 		issue,
@@ -42,6 +44,7 @@
 	let statusForm = $state<HTMLFormElement | null>(null);
 	let statusMenuOpen = $state(false);
 	let statusUpdating = $state(false);
+	let undoStatus: BugStatus | null = null;
 
 	const findingPreview = $derived(displayList(issue.finding)[0]);
 	const mediaCount = $derived(issue.evidence_media?.length ?? 0);
@@ -53,6 +56,14 @@
 		if (statusInput) statusInput.value = status;
 		statusForm.requestSubmit();
 	}
+
+	function markFixed() {
+		if (issue.status === 'fixed') return;
+		undoStatus = issue.status;
+		submitStatus('fixed');
+	}
+
+	const showQuickResolve = $derived(!isResolvedStatus(issue.status));
 
 	function openPreview(media: EvidenceMedia) {
 		previewMedia = media;
@@ -135,7 +146,19 @@
 										try {
 											await applyAction(result);
 											if (result.type === 'success') {
-												toast.success(`${issue.id} status updated`, { duration: 2500 });
+												const undo = undoStatus;
+												undoStatus = null;
+												if (undo) {
+													toast.success(`${issue.id} marked as fixed`, {
+														duration: 5000,
+														action: {
+															label: 'Undo',
+															onClick: () => submitStatus(undo)
+														}
+													});
+												} else {
+													toast.success(`${issue.id} status updated`, { duration: 2500 });
+												}
 											} else if (result.type === 'failure') {
 												toast.error(
 													(result.data as { message?: string })?.message ??
@@ -201,6 +224,28 @@
 								{/key}
 							</form>
 						</span>
+
+						{#if showQuickResolve}
+							<!-- svelte-ignore a11y_no_static_element_interactions -->
+							<!-- svelte-ignore a11y_click_events_have_key_events -->
+							<span
+								class="inline-flex"
+								role="presentation"
+								data-no-card-click
+								onclick={(event) => event.stopPropagation()}
+								onkeydown={(event) => event.stopPropagation()}
+							>
+								<button
+									type="button"
+									class="inline-flex size-7 items-center justify-center rounded-md border border-severity-low/35 bg-severity-low/10 text-severity-low transition-colors hover:bg-severity-low/20 disabled:opacity-50"
+									title="Mark as fixed"
+									disabled={statusUpdating}
+									onclick={markFixed}
+								>
+									<CircleCheckIcon class="size-3.5" />
+								</button>
+							</span>
+						{/if}
 
 						<Badge variant="outline" class={AREA_BADGE_STYLE}>
 							{issue.area}

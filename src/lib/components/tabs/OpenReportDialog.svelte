@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { ProjectSummary } from '$lib/server/store.js';
+	import type { ProjectGroupSummary, ReportSummary } from '$lib/server/store.js';
 	import {
 		parseImportJson,
 		type IdConflictStrategy,
@@ -25,26 +25,34 @@
 	import { ui } from '$lib/ui-layout.js';
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
+	import { reportPath } from '$lib/routes.js';
 	import { toast } from 'svelte-sonner';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import UploadIcon from '@lucide/svelte/icons/upload';
 	import { upsertTab, saveOpenTabs, loadOpenTabs } from '$lib/tabs.js';
 	import { preloadRoute } from '$lib/preload.js';
+	import GroupAssignField from '$lib/components/dashboard/GroupAssignField.svelte';
 
 	let {
 		open = $bindable(false),
 		projects,
-		mode = 'all'
+		groups = [],
+		mode = 'all',
+		defaultGroupSlug = ''
 	}: {
 		open?: boolean;
-		projects: ProjectSummary[];
+		projects: ReportSummary[];
+		groups?: ProjectGroupSummary[];
 		mode?: 'all' | 'create';
+		defaultGroupSlug?: string;
 	} = $props();
 
 	let creating = $state(false);
 	let importing = $state(false);
 	let createPanel = $state<'new' | 'import'>('new');
 	let newProjectName = $state('');
+	let groupSlug = $state('');
+	let newGroupName = $state('');
 	let importName = $state('');
 	let importPreview = $state<ImportParseSuccess | null>(null);
 	let importErrors = $state<string[]>([]);
@@ -58,14 +66,14 @@
 	const showSlugConflictOptions = $derived(Boolean(importPreview && slugCollision));
 	const showIdConflictOptions = $derived(Boolean(importPreview && importPreview.duplicateIds.length > 0));
 
-	function openProject(project: ProjectSummary) {
+	function openReport(report: ReportSummary) {
 		const tabs = upsertTab(loadOpenTabs(), {
-			slug: project.slug,
-			title: project.title
+			slug: report.slug,
+			title: report.title
 		});
 		saveOpenTabs(tabs);
 		open = false;
-		goto(`/p/${project.slug}`);
+		goto(reportPath(report.slug));
 	}
 
 	function resetImportState() {
@@ -79,6 +87,8 @@
 	function resetCreatePanel() {
 		createPanel = 'new';
 		newProjectName = '';
+		groupSlug = defaultGroupSlug;
+		newGroupName = '';
 		resetImportState();
 	}
 
@@ -127,20 +137,20 @@
 		<DialogHeader class={ui.overlayHeader}>
 			<DialogTitle>
 				{#if mode === 'create'}
-					{createPanel === 'new' ? 'New Project' : 'Import Project'}
+					{createPanel === 'new' ? 'New Report' : 'Import Report'}
 				{:else}
-					Open Project
+					Open Report
 				{/if}
 			</DialogTitle>
 			<DialogDescription>
 				{#if mode === 'create'}
 					{#if createPanel === 'new'}
-						Create a new bug report project.
+						Create a new bug report.
 					{:else}
-						Import a project from a JSON file.
+						Import a report from a JSON file.
 					{/if}
 				{:else}
-					Choose a bug report project from the projects folder or create a new one.
+					Choose a bug report or create a new one.
 				{/if}
 			</DialogDescription>
 		</DialogHeader>
@@ -148,23 +158,23 @@
 		<div class="{ui.overlayBody} {ui.formSections}">
 			{#if mode === 'all' && projects.length > 0}
 				<section class={ui.section}>
-					<p class={ui.sectionTitle}>Projects</p>
+					<p class={ui.sectionTitle}>Reports</p>
 					<ul class="divide-y divide-border overflow-hidden rounded-lg border border-border">
-						{#each projects as project (project.slug)}
+						{#each projects as report (report.slug)}
 							<li>
 								<button
 									type="button"
 									class="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-secondary/50"
-									onpointerenter={() => preloadRoute(`/p/${project.slug}`)}
-									onfocus={() => preloadRoute(`/p/${project.slug}`)}
-									onclick={() => openProject(project)}
+									onpointerenter={() => preloadRoute(reportPath(report.slug))}
+									onfocus={() => preloadRoute(reportPath(report.slug))}
+									onclick={() => openReport(report)}
 								>
 									<div class="min-w-0">
-										<p class="truncate font-medium">{project.title}</p>
-										<p class="text-xs text-muted-foreground">{project.slug}</p>
+										<p class="truncate font-medium">{report.title}</p>
+										<p class="text-xs text-muted-foreground">{report.slug}</p>
 									</div>
 									<span class="shrink-0 text-xs text-muted-foreground">
-										{project.issueCount} issue{project.issueCount === 1 ? '' : 's'}
+										{report.issueCount} issue{report.issueCount === 1 ? '' : 's'}
 									</span>
 								</button>
 							</li>
@@ -175,14 +185,14 @@
 				<div
 					class="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground"
 				>
-					No projects found in <code class="text-xs">data/projects/</code>.
+					No reports found.
 				</div>
 			{/if}
 
 			{#if createPanel === 'new'}
 				<form
 					method="POST"
-					action="/projects?/createProject"
+					action="/reports?/createReport"
 					class="space-y-4 rounded-lg border border-border bg-secondary/20 {ui.cardPadding}"
 					use:enhance={() => {
 						creating = true;
@@ -198,10 +208,10 @@
 								if (result.type === 'failure') {
 									toast.error(
 										(result.data as { message?: string })?.message ??
-											'Failed to create project'
+											'Failed to create report'
 									);
 								} else if (result.type === 'error') {
-									toast.error('An unexpected error occurred while creating the project');
+									toast.error('An unexpected error occurred while creating the report');
 								}
 							} finally {
 								creating = false;
@@ -210,9 +220,9 @@
 					}}
 				>
 					<div class={ui.field}>
-						<Label for="new-project-name" class={ui.label}>New project</Label>
+						<Label for="new-report-name" class={ui.label}>New report</Label>
 						<Input
-							id="new-project-name"
+							id="new-report-name"
 							name="name"
 							class={ui.input}
 							placeholder="My QA Report"
@@ -220,9 +230,12 @@
 							required
 						/>
 					</div>
+					{#key open}
+						<GroupAssignField id="create-report-group" {groups} bind:groupSlug bind:newGroupName />
+					{/key}
 					<Button type="submit" class="w-full" disabled={creating || !newProjectName.trim()}>
 						<PlusIcon class="size-4" />
-						{creating ? 'Creating...' : 'Create Project'}
+						{creating ? 'Creating...' : 'Create Report'}
 					</Button>
 				</form>
 
@@ -238,10 +251,10 @@
 					<UploadIcon class="size-4" />
 					Import from JSON
 				</Button>
-			{:else}
+			{:else if createPanel === 'import'}
 			<form
 				method="POST"
-				action="/projects?/importProject"
+				action="/reports?/importReport"
 				enctype="multipart/form-data"
 				class="space-y-4 rounded-lg border border-border bg-secondary/20 {ui.cardPadding}"
 				use:enhance={() => {
@@ -258,11 +271,11 @@
 
 							if (result.type === 'failure') {
 								toast.error(
-									(result.data as { message?: string })?.message ??
-										'Failed to import project'
-								);
-							} else if (result.type === 'error') {
-								toast.error('An unexpected error occurred while importing the project');
+										(result.data as { message?: string })?.message ??
+											'Failed to import report'
+									);
+								} else if (result.type === 'error') {
+								toast.error('An unexpected error occurred while importing the report');
 							}
 						} finally {
 							importing = false;
@@ -292,9 +305,9 @@
 				</div>
 
 				<div class={ui.field}>
-					<Label for="import-project-name" class={ui.label}>Project name (optional)</Label>
+					<Label for="import-report-name" class={ui.label}>Report name (optional)</Label>
 					<Input
-						id="import-project-name"
+						id="import-report-name"
 						name="name"
 						class={ui.input}
 						placeholder="Uses title from JSON when empty"
@@ -302,6 +315,10 @@
 						onchange={refreshImportPreview}
 					/>
 				</div>
+
+				{#key open}
+					<GroupAssignField id="import-report-group" {groups} bind:groupSlug bind:newGroupName />
+				{/key}
 
 				{#if importErrors.length > 0}
 					<div class="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
@@ -328,7 +345,7 @@
 						{/if}
 						{#if slugCollision}
 							<p class="mt-1 text-amber-700 dark:text-amber-300">
-								A project with this slug already exists.
+								A report with this slug already exists.
 							</p>
 						{/if}
 					</div>
@@ -348,12 +365,12 @@
 								{slugConflict === 'suffix'
 									? 'Use numbered suffix'
 									: slugConflict === 'overwrite'
-										? 'Overwrite existing project'
+										? 'Overwrite existing report'
 										: 'Cancel import'}
 							</SelectTrigger>
 							<SelectContent>
 								<SelectItem value="suffix">Use numbered suffix</SelectItem>
-								<SelectItem value="overwrite">Overwrite existing project</SelectItem>
+								<SelectItem value="overwrite">Overwrite existing report</SelectItem>
 								<SelectItem value="cancel">Cancel import</SelectItem>
 							</SelectContent>
 						</Select>
@@ -410,7 +427,7 @@
 						disabled={importing || importErrors.length > 0}
 					>
 						<UploadIcon class="size-4" />
-						{importing ? 'Importing...' : 'Import Project'}
+						{importing ? 'Importing...' : 'Import Report'}
 					</Button>
 				</div>
 			</form>

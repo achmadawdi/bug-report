@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { FilterState, Severity } from '$lib/types.js';
-	import { SEVERITIES, SEVERITY_STYLES, STATUSES, STATUS_LABELS } from '$lib/constants.js';
+	import { SEVERITIES, SEVERITY_STYLES, STATUSES, STATUS_LABELS, FILTER_VIEWS, FILTER_VIEW_LABELS } from '$lib/constants.js';
 	import { isFiltersActive } from '$lib/filters.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -138,7 +138,21 @@
 				</div>
 			</div>
 
-			<!-- Row 2: severity chips + dropdown filters -->
+			<!-- Row 2: view toggle -->
+			<div class="flex items-center gap-1 rounded-lg border border-border bg-secondary/30 p-1">
+				{#each FILTER_VIEWS as view}
+					<Button
+						size="sm"
+						variant={filters.view === view ? 'default' : 'ghost'}
+						class="h-7 flex-1 px-2 text-xs"
+						onclick={() => (filters.view = view)}
+					>
+						{FILTER_VIEW_LABELS[view]}
+					</Button>
+				{/each}
+			</div>
+
+			<!-- Row 3: severity chips + dropdown filters -->
 			<div class="flex flex-col gap-2 lg:flex-row lg:items-center">
 				<div class="flex min-w-0 flex-1 items-center gap-2">
 					<Button

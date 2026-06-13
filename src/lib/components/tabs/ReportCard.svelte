@@ -1,0 +1,180 @@
+<script lang="ts">
+	import type { ReportSummary } from '$lib/server/store.js';
+	import { Card } from '$lib/components/ui/card/index.js';
+	import { Badge } from '$lib/components/ui/badge/index.js';
+	import { displayText } from '$lib/format.js';
+	import FolderKanbanIcon from '@lucide/svelte/icons/folder-kanban';
+	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
+	import BugIcon from '@lucide/svelte/icons/bug';
+	import AlertTriangleIcon from '@lucide/svelte/icons/alert-triangle';
+	import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
+	import { ui } from '$lib/ui-layout.js';
+	import { preloadRoute } from '$lib/preload.js';
+	import { reportPath } from '$lib/routes.js';
+	import ProgressBar from '$lib/components/ProgressBar.svelte';
+	import {
+		PROJECT_WORKFLOW_LABELS,
+		PROJECT_WORKFLOW_STYLES,
+		PROJECT_WORKFLOW_CARD_STYLES
+	} from '$lib/constants.js';
+	import { cn } from '$lib/utils.js';
+
+	let {
+		report,
+		onclick,
+		variant = 'default'
+	}: {
+		report: ReportSummary;
+		onclick: () => void;
+		variant?: 'default' | 'nested';
+	} = $props();
+
+	const meta = $derived(
+		[displayText(report.platform), displayText(report.version)]
+			.filter((value) => value && value !== '—')
+			.join(' · ')
+	);
+
+	const isNested = $derived(variant === 'nested');
+	const isResolved = $derived(report.workflowStatus === 'resolved');
+	const isOpen = $derived(report.workflowStatus === 'open');
+	const isMuted = $derived(!isOpen);
+	const showProgress = $derived(report.issueCount > 0);
+	const badgeSize = $derived(isNested ? 'px-1.5 py-0 text-[10px]' : '');
+	const mutedBadge = 'border-border/50 bg-muted/20 text-muted-foreground';
+	const surfaceStyle = $derived(
+		isOpen
+			? isNested
+				? 'border-border/60 bg-secondary/20 hover:border-primary/30 hover:bg-secondary/30'
+				: 'border-border bg-card hover:border-primary/40 hover:bg-card/80'
+			: PROJECT_WORKFLOW_CARD_STYLES[report.workflowStatus]
+	);
+	const contentGap = $derived(isNested ? 'gap-2' : ui.gridLg);
+</script>
+
+<button
+	type="button"
+	class="group w-full text-left"
+	{onclick}
+	onpointerenter={() => preloadRoute(reportPath(report.slug))}
+	onfocus={() => preloadRoute(reportPath(report.slug))}
+>
+	<Card
+		class={cn('h-full gap-0 py-0 transition-colors', surfaceStyle)}
+	>
+		<div
+			class={cn(
+				'flex',
+				contentGap,
+				isNested ? 'p-2.5' : ui.cardPadding
+			)}
+		>
+			<div
+				class={cn(
+					'flex shrink-0 items-center justify-center rounded-md border transition-colors',
+					isResolved
+						? 'border-border/50 bg-muted/20 text-muted-foreground/70'
+						: 'border-border bg-secondary/60 text-muted-foreground group-hover:border-primary/30 group-hover:text-primary',
+					isNested ? 'size-8' : 'size-10'
+				)}
+			>
+				<FolderKanbanIcon class={isNested ? 'size-3.5' : 'size-5'} />
+			</div>
+
+			<div class={cn('flex min-w-0 flex-1 flex-col', contentGap)}>
+				<div class="flex items-start justify-between gap-2">
+					<div class="min-w-0 space-y-0.5">
+						{#if variant === 'default'}
+							<p class="font-mono {ui.sectionTitle}">
+								{report.slug}
+							</p>
+						{/if}
+						<h3
+							class={cn(
+								'line-clamp-2 leading-snug font-semibold',
+								isNested ? 'text-sm' : 'text-sm sm:text-base',
+								isResolved && 'font-medium text-muted-foreground'
+							)}
+						>
+							{report.title}
+						</h3>
+						{#if meta}
+							<p
+								class={cn(
+									'truncate text-xs',
+									isResolved ? 'text-muted-foreground/70' : 'text-muted-foreground'
+								)}
+							>
+								{meta}
+							</p>
+						{/if}
+					</div>
+					<ChevronRightIcon
+						class={cn(
+							'mt-0.5 size-4 shrink-0 transition-opacity',
+							isResolved
+								? 'text-muted-foreground/40 opacity-0 group-hover:opacity-60'
+								: 'text-muted-foreground opacity-0 group-hover:opacity-100'
+						)}
+					/>
+				</div>
+
+				<div class={cn(ui.badgeRow, isNested && 'gap-1.5')}>
+					{#if !isOpen}
+						<Badge
+							variant="outline"
+							class={cn(
+								PROJECT_WORKFLOW_STYLES[report.workflowStatus],
+								badgeSize
+							)}
+						>
+							{PROJECT_WORKFLOW_LABELS[report.workflowStatus]}
+						</Badge>
+					{/if}
+					<Badge
+						variant="secondary"
+						class={cn('gap-1', badgeSize, isMuted && mutedBadge)}
+					>
+						<BugIcon class={isNested ? 'size-3' : ''} />
+						{report.issueCount} total
+					</Badge>
+					{#if report.openCount > 0 && !isResolved}
+						<Badge variant="outline" class={cn('gap-1', badgeSize)}>
+							{report.openCount} open
+						</Badge>
+					{/if}
+					{#if report.criticalCount > 0 && !isResolved}
+						<Badge variant="destructive" class={cn('gap-1', badgeSize)}>
+							<AlertTriangleIcon class={isNested ? 'size-3' : ''} />
+							{report.criticalCount} critical
+						</Badge>
+					{/if}
+					{#if report.fixedCount > 0}
+						<Badge
+							variant="outline"
+							class={cn(
+								'gap-1',
+								badgeSize,
+								isMuted
+									? mutedBadge
+									: 'border-severity-low/30 text-severity-low'
+							)}
+						>
+							<CircleCheckIcon class={isNested ? 'size-3' : ''} />
+							{report.fixedCount} fixed
+						</Badge>
+					{/if}
+				</div>
+
+				{#if showProgress}
+					<ProgressBar
+						value={report.resolvedCount}
+						max={report.issueCount}
+						tone={isMuted ? 'muted' : 'default'}
+						class={isNested ? 'space-y-0.5' : ''}
+					/>
+				{/if}
+			</div>
+		</div>
+	</Card>
+</button>

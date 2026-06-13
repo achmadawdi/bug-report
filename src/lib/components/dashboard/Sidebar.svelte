@@ -10,7 +10,17 @@
 	import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 
-	let { report }: { report: ReportView } = $props();
+	import type { FilterView } from '$lib/types.js';
+
+	let {
+		report,
+		onViewChange,
+		currentView = 'active'
+	}: {
+		report: ReportView;
+		onViewChange?: (view: FilterView) => void;
+		currentView?: FilterView;
+	} = $props();
 </script>
 
 <aside class="space-y-4">
@@ -63,5 +73,5 @@
 		</CardContent>
 	</Card>
 
-	<BreakdownChart summary={report.summary} />
+	<BreakdownChart summary={report.summary} {onViewChange} {currentView} />
 </aside>

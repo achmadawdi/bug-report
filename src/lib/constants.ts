@@ -4,6 +4,22 @@ export const SEVERITIES: Severity[] = ['Critical', 'High', 'Medium', 'Low'];
 
 export const STATUSES: BugStatus[] = ['open', 'in_progress', 'fixed', 'wont_fix'];
 
+export const RESOLVED_STATUSES: BugStatus[] = ['fixed', 'wont_fix'];
+
+export const ACTIVE_STATUSES: BugStatus[] = ['open', 'in_progress'];
+
+export function isResolvedStatus(status: BugStatus): boolean {
+	return RESOLVED_STATUSES.includes(status);
+}
+
+export const FILTER_VIEWS = ['active', 'resolved', 'all'] as const;
+
+export const FILTER_VIEW_LABELS: Record<(typeof FILTER_VIEWS)[number], string> = {
+	active: 'Active',
+	resolved: 'Resolved',
+	all: 'All'
+};
+
 export const SEVERITY_ORDER: Record<Severity, number> = {
 	Critical: 0,
 	High: 1,
@@ -56,6 +72,30 @@ export const STATUS_DOT_STYLES: Record<BugStatus, string> = {
 	in_progress: 'bg-primary',
 	fixed: 'bg-severity-low',
 	wont_fix: 'bg-muted-foreground'
+};
+
+import type { ReportWorkflowStatus } from './types.js';
+
+export const PROJECT_WORKFLOW_STATUSES = ['open', 'resolved', 'postponed'] as const satisfies readonly ReportWorkflowStatus[];
+
+export const PROJECT_WORKFLOW_LABELS: Record<ReportWorkflowStatus, string> = {
+	open: 'Open',
+	resolved: 'Resolved',
+	postponed: 'Postponed'
+};
+
+export const PROJECT_WORKFLOW_STYLES: Record<ReportWorkflowStatus, string> = {
+	open: 'border-severity-high/35 bg-severity-high/12 text-severity-high',
+	resolved: 'border-border bg-muted/30 text-muted-foreground',
+	postponed: 'border-muted-foreground/35 bg-muted/40 text-muted-foreground'
+};
+
+export const PROJECT_WORKFLOW_CARD_STYLES: Record<ReportWorkflowStatus, string> = {
+	open: '',
+	resolved:
+		'border-border/40 bg-muted/15 text-muted-foreground hover:border-border/60 hover:bg-muted/20',
+	postponed:
+		'border-border/50 bg-secondary/15 text-foreground/80 hover:border-border/70 hover:bg-secondary/25'
 };
 
 export const AREA_BADGE_STYLE =
