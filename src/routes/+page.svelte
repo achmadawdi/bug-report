@@ -65,19 +65,19 @@
 				<ReportCard {report} onclick={() => openReport(report)} />
 			{/each}
 
-			<button type="button" class="text-left" onclick={() => openCreateDialog()}>
+			<button type="button" class="group/new-btn text-left" onclick={() => openCreateDialog()}>
 				<Card
-					class="flex h-full min-h-[131px] items-center justify-center border-dashed transition-colors hover:border-primary/50 hover:bg-secondary/30"
+					class="flex h-full min-h-[131px] items-center justify-center border-dashed border-border-strong/30 bg-card/25 transition-all duration-200 hover:border-primary/40 hover:bg-card-hover hover:shadow-sm backdrop-blur-md"
 				>
 					<CardContent
 						class="flex flex-col items-center {ui.gridLg} {ui.cardPadding} text-muted-foreground"
 					>
 						<div
-							class="flex size-10 items-center justify-center rounded-lg border border-dashed border-border"
+							class="flex size-10 items-center justify-center rounded-lg border border-dashed border-border-strong/40 bg-secondary/20 text-muted-foreground group-hover/new-btn:border-primary-muted/40 group-hover/new-btn:bg-primary-surface/25 group-hover/new-btn:text-primary transition-all duration-200"
 						>
 							<PlusIcon class="size-5" />
 						</div>
-						<p class="text-sm font-medium">New report</p>
+						<p class="text-sm font-medium text-muted-foreground group-hover/new-btn:text-foreground transition-colors">New report</p>
 					</CardContent>
 				</Card>
 			</button>

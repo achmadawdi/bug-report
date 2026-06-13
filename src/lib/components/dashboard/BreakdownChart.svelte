@@ -11,6 +11,7 @@
 	import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card/index.js';
 	import { ui } from '$lib/ui-layout.js';
 	import BarChart3Icon from '@lucide/svelte/icons/bar-chart-3';
+	import { cn } from '$lib/utils.js';
 
 	let {
 		summary,
@@ -35,10 +36,10 @@
 	}
 </script>
 
-<Card size="sm" class={ui.cardPanel}>
+<Card size="sm" class={cn(ui.cardPanel, 'border-border/60 bg-card/45 backdrop-blur-md shadow-sm')}>
 	<CardHeader class={ui.cardHeader}>
 		<CardTitle class="flex items-center gap-2 text-sm font-semibold">
-			<BarChart3Icon class="size-4 text-primary" />
+			<BarChart3Icon class="size-4 text-primary-muted" />
 			Breakdown
 		</CardTitle>
 	</CardHeader>

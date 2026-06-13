@@ -39,32 +39,32 @@ export const SEVERITY_STYLES: Record<
 	{ badge: string; dot: string; bar: string }
 > = {
 	Critical: {
-		badge: 'border-severity-critical/30 bg-severity-critical/10 text-severity-critical',
+		badge: 'border-severity-critical/20 bg-severity-critical/8 text-severity-critical',
 		dot: 'bg-severity-critical',
 		bar: 'bg-severity-critical'
 	},
 	High: {
-		badge: 'border-severity-high/30 bg-severity-high/10 text-severity-high',
+		badge: 'border-severity-high/20 bg-severity-high/8 text-severity-high',
 		dot: 'bg-severity-high',
 		bar: 'bg-severity-high'
 	},
 	Medium: {
-		badge: 'border-severity-medium/30 bg-severity-medium/10 text-severity-medium',
+		badge: 'border-severity-medium/20 bg-severity-medium/8 text-severity-medium',
 		dot: 'bg-severity-medium',
 		bar: 'bg-severity-medium'
 	},
 	Low: {
-		badge: 'border-severity-low/30 bg-severity-low/10 text-severity-low',
+		badge: 'border-severity-low/20 bg-severity-low/8 text-severity-low',
 		dot: 'bg-severity-low',
 		bar: 'bg-severity-low'
 	}
 };
 
 export const STATUS_STYLES: Record<BugStatus, string> = {
-	open: 'border-severity-high/35 bg-severity-high/12 text-severity-high',
-	in_progress: 'border-primary/35 bg-primary/12 text-primary',
-	fixed: 'border-severity-low/35 bg-severity-low/12 text-severity-low',
-	wont_fix: 'border-muted-foreground/35 bg-muted/40 text-muted-foreground'
+	open: 'border-severity-high/20 bg-severity-high/8 text-severity-high',
+	in_progress: 'border-primary-muted/30 bg-primary-surface/40 text-primary',
+	fixed: 'border-severity-low/20 bg-severity-low/8 text-severity-low',
+	wont_fix: 'border-border-subtle bg-secondary/40 text-muted-foreground'
 };
 
 export const STATUS_DOT_STYLES: Record<BugStatus, string> = {
@@ -85,21 +85,21 @@ export const PROJECT_WORKFLOW_LABELS: Record<ReportWorkflowStatus, string> = {
 };
 
 export const PROJECT_WORKFLOW_STYLES: Record<ReportWorkflowStatus, string> = {
-	open: 'border-severity-high/35 bg-severity-high/12 text-severity-high',
-	resolved: 'border-border bg-muted/30 text-muted-foreground',
-	postponed: 'border-muted-foreground/35 bg-muted/40 text-muted-foreground'
+	open: 'border-severity-high/20 bg-severity-high/8 text-severity-high',
+	resolved: 'border-border-subtle bg-surface-subtle/50 text-muted-foreground',
+	postponed: 'border-border-subtle bg-secondary/40 text-muted-foreground'
 };
 
 export const PROJECT_WORKFLOW_CARD_STYLES: Record<ReportWorkflowStatus, string> = {
 	open: '',
 	resolved:
-		'border-border/40 bg-muted/15 text-muted-foreground hover:border-border/60 hover:bg-muted/20',
+		'border-border-subtle bg-surface-subtle/40 text-muted-foreground hover:border-border/50 hover:bg-card-hover',
 	postponed:
-		'border-border/50 bg-secondary/15 text-foreground/80 hover:border-border/70 hover:bg-secondary/25'
+		'border-border-subtle/70 bg-secondary/20 text-foreground/80 hover:border-border/60 hover:bg-secondary/30'
 };
 
 export const AREA_BADGE_STYLE =
-	'border-primary/35 bg-primary/12 text-primary hover:bg-primary/12';
+	'border-primary-muted/25 bg-primary-surface/40 text-primary hover:bg-primary-surface/60';
 
 export const CATEGORY_BADGE_STYLE =
-	'border-chart-4/35 bg-chart-4/12 text-chart-4 hover:bg-chart-4/12';
+	'border-chart-4/20 bg-chart-4/8 text-chart-4 hover:bg-chart-4/12';

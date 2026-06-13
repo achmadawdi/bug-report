@@ -172,7 +172,7 @@
 	);
 </script>
 
-<Card class={ui.cardPanel}>
+<Card class={cn(ui.cardPanel, 'border-border/60 bg-card/45 backdrop-blur-md shadow-sm')}>
 	<CardContent class="p-0">
 		<div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between {ui.cardPadding}">
 			<div class="grid min-w-0 flex-1 {ui.gridLg} sm:grid-cols-2 xl:grid-cols-4">
@@ -193,7 +193,7 @@
 				<form
 					method="POST"
 					action="?/updateWorkflowStatus"
-					class="flex items-center gap-1 rounded-lg border border-border bg-secondary/30 p-1"
+					class="flex items-center gap-1 rounded-lg border border-border-subtle bg-secondary/20 p-1"
 					use:enhance={({ formData }) => {
 						const nextStatus = String(
 							formData.get('status') ?? ''
@@ -228,12 +228,13 @@
 							name="status"
 							value={status}
 							size="sm"
-							variant={isActive ? 'default' : 'ghost'}
+							variant="ghost"
 							class={cn(
 								ui.controlSm,
-								'px-2.5 text-xs',
-								isActive && 'pointer-events-none font-semibold shadow-sm',
-								!isActive && 'text-muted-foreground hover:text-foreground'
+								'px-2.5 text-xs rounded-md transition-all duration-200',
+								isActive
+									? 'bg-primary-surface border border-primary-muted/20 text-primary font-semibold shadow-sm pointer-events-none'
+									: 'text-muted-foreground hover:bg-muted/20 hover:text-foreground'
 							)}
 							disabled={workflowSaving && !isActive}
 							aria-pressed={isActive}
@@ -254,8 +255,8 @@
 									{...props}
 									type="button"
 									size="sm"
-									variant="ghost"
-									class="{ui.controlSm} shrink-0 px-3 text-xs"
+									variant="outline"
+									class="{ui.controlSm} shrink-0 px-3 text-xs border-border-subtle bg-background/40 hover:bg-muted/40 hover:text-foreground transition-colors"
 								>
 									<DownloadIcon class="size-3.5" />
 									Export
@@ -278,8 +279,8 @@
 					<Button
 						type="button"
 						size="sm"
-						variant="ghost"
-						class="{ui.controlSm} shrink-0 px-3 text-xs"
+						variant="outline"
+						class="{ui.controlSm} shrink-0 px-3 text-xs border-border-subtle bg-background/40 hover:bg-muted/40 hover:text-foreground transition-colors"
 						onclick={openEdit}
 					>
 						<PencilIcon class="size-3.5" />
