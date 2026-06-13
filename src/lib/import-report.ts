@@ -2,6 +2,7 @@ import { z } from 'zod';
 import {
 	issueSchema,
 	reportDataSchema,
+	reportMetaSchema,
 	type Issue,
 	type ReportData
 } from '$lib/types.js';
@@ -19,7 +20,10 @@ const exportPayloadSchema = z.object({
 	issues: z.array(issueSchema).min(1),
 	project: z.string().optional(),
 	exported_at: z.string().optional(),
-	filters: z.unknown().optional()
+	filters: z.unknown().optional(),
+	report: reportMetaSchema.optional(),
+	severity_guide: z.record(z.string(), z.string()).optional(),
+	levels_with_no_issues_recorded: z.array(z.string()).optional()
 });
 
 export type ImportParseSuccess = {
@@ -67,23 +71,31 @@ export function detectDuplicateIssueIds(issues: Pick<Issue, 'id'>[]): string[] {
 	return [...duplicates];
 }
 
-export function createReportFromExport(issues: Issue[], title: string): ReportData {
+export function createReportFromExport(
+	issues: Issue[],
+	title: string,
+	extras?: {
+		report?: ReportData['report'];
+		severity_guide?: ReportData['severity_guide'];
+		levels_with_no_issues_recorded?: ReportData['levels_with_no_issues_recorded'];
+	}
+): ReportData {
 	return {
 		report: {
 			title,
-			type: 'QA Testing Report',
-			platform: '',
-			version_tested: '',
-			device: '',
-			tester: '',
-			tester_version: '',
-			test_date: '',
-			test_scope: '',
-			version: '',
-			source_file: ''
+			type: extras?.report?.type ?? 'QA Testing Report',
+			platform: extras?.report?.platform ?? '',
+			version_tested: extras?.report?.version_tested ?? '',
+			device: extras?.report?.device ?? '',
+			tester: extras?.report?.tester ?? '',
+			tester_version: extras?.report?.tester_version ?? '',
+			test_date: extras?.report?.test_date ?? '',
+			test_scope: extras?.report?.test_scope ?? '',
+			version: extras?.report?.version ?? '',
+			source_file: extras?.report?.source_file ?? ''
 		},
-		severity_guide: { ...DEFAULT_SEVERITY_GUIDE },
-		levels_with_no_issues_recorded: [],
+		severity_guide: extras?.severity_guide ?? { ...DEFAULT_SEVERITY_GUIDE },
+		levels_with_no_issues_recorded: extras?.levels_with_no_issues_recorded ?? [],
 		issues
 	};
 }
@@ -106,8 +118,15 @@ export function parseImportJson(text: string, nameOverride?: string): ImportPars
 	const exportResult = exportPayloadSchema.safeParse(json);
 	if (exportResult.success) {
 		const title =
-			nameOverride?.trim() || exportResult.data.project?.trim() || 'Imported QA Report';
-		const data = createReportFromExport(exportResult.data.issues, title);
+			nameOverride?.trim() ||
+			exportResult.data.report?.title ||
+			exportResult.data.project?.trim() ||
+			'Imported QA Report';
+		const data = createReportFromExport(exportResult.data.issues, title, {
+			report: exportResult.data.report,
+			severity_guide: exportResult.data.severity_guide,
+			levels_with_no_issues_recorded: exportResult.data.levels_with_no_issues_recorded
+		});
 		return buildSuccess('export', data, title);
 	}
 

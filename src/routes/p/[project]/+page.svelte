@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { afterNavigate, replaceState } from '$app/navigation';
 	import { onMount, untrack } from 'svelte';
-	import type { Issue, ReportView } from '$lib/types.js';
+	import type { Issue, ReportData, ReportView } from '$lib/types.js';
 	import {
 		buildIssueSearchTextMap,
 		clearFilters,
@@ -112,10 +112,9 @@
 	}
 
 	function exportFilteredJson() {
-		const payload = {
-			exported_at: new Date().toISOString(),
-			project,
-			filters,
+		const { summary: _summary, ...reportData }: ReportView = report;
+		const payload: ReportData = {
+			...reportData,
 			issues: filteredIssues
 		};
 

@@ -103,7 +103,7 @@
 		<DialogHeader class={ui.overlayHeader}>
 			<DialogTitle class="text-lg leading-tight">Edit Report Details</DialogTitle>
 			<DialogDescription class="text-sm leading-relaxed">
-				Changes are saved to the report JSON file.
+				Changes are saved to the project database.
 			</DialogDescription>
 		</DialogHeader>
 
