@@ -2,6 +2,8 @@ import { getSql } from './client.js';
 import {
 	bootstrapLedgerForExistingDatabase,
 	ensureMigrationLedger,
+	getAppliedMigrationIds,
+	MIGRATION_IDS,
 	runMigrationStep
 } from './migration-ledger.js';
 import { verifyReportSchema } from './schema-verify.js';
@@ -649,62 +651,127 @@ async function executeMigrations(): Promise<void> {
 
 	await ensureMigrationLedger(sql);
 
+	const applied = await getAppliedMigrationIds(sql);
+	if (MIGRATION_IDS.every((id) => applied.has(id))) {
+		return;
+	}
+
 	if (await bootstrapLedgerForExistingDatabase(sql)) {
 		await verifyReportSchema(sql);
 		return;
 	}
 
-	await runMigrationStep(sql, '2026-06-13_create_project_groups', async () => {
-		await sql.query(CREATE_PROJECT_GROUPS_SQL, []);
-	});
+	await runMigrationStep(
+		sql,
+		'2026-06-13_create_project_groups',
+		async () => {
+			await sql.query(CREATE_PROJECT_GROUPS_SQL, []);
+		},
+		applied
+	);
 
-	await runMigrationStep(sql, '2026-06-13_add_report_group_slug', async () => {
-		await sql.query(ADD_PROJECTS_GROUP_SLUG_SQL, []);
-	});
+	await runMigrationStep(
+		sql,
+		'2026-06-13_add_report_group_slug',
+		async () => {
+			await sql.query(ADD_PROJECTS_GROUP_SLUG_SQL, []);
+		},
+		applied
+	);
 
-	await runMigrationStep(sql, '2026-06-13_add_workflow_status', async () => {
-		await sql.query(ADD_PROJECTS_WORKFLOW_STATUS_SQL, []);
-	});
+	await runMigrationStep(
+		sql,
+		'2026-06-13_add_workflow_status',
+		async () => {
+			await sql.query(ADD_PROJECTS_WORKFLOW_STATUS_SQL, []);
+		},
+		applied
+	);
 
-	await runMigrationStep(sql, '2026-06-13_add_workflow_status_check', async () => {
-		await sql.query(ADD_PROJECTS_WORKFLOW_STATUS_CHECK_SQL, []);
-	});
+	await runMigrationStep(
+		sql,
+		'2026-06-13_add_workflow_status_check',
+		async () => {
+			await sql.query(ADD_PROJECTS_WORKFLOW_STATUS_CHECK_SQL, []);
+		},
+		applied
+	);
 
-	await runMigrationStep(sql, '2026-06-13_add_report_type_check', async () => {
-		await sql.query(ADD_PROJECTS_TYPE_CHECK_SQL, []);
-	});
+	await runMigrationStep(
+		sql,
+		'2026-06-13_add_report_type_check',
+		async () => {
+			await sql.query(ADD_PROJECTS_TYPE_CHECK_SQL, []);
+		},
+		applied
+	);
 
-	await runMigrationStep(sql, '2026-06-13_legacy_testing_sessions', async () => {
-		for (const statement of LEGACY_TESTING_SESSION_MIGRATIONS) {
-			await runIfLegacyProjectTestingSessions(sql, statement);
-		}
-	});
+	await runMigrationStep(
+		sql,
+		'2026-06-13_legacy_testing_sessions',
+		async () => {
+			for (const statement of LEGACY_TESTING_SESSION_MIGRATIONS) {
+				await runIfLegacyProjectTestingSessions(sql, statement);
+			}
+		},
+		applied
+	);
 
-	await runMigrationStep(sql, '2026-06-13_rename_projects_to_reports', async () => {
-		await sql.query(RENAME_PROJECTS_TO_REPORTS_SQL, []);
-	});
+	await runMigrationStep(
+		sql,
+		'2026-06-13_rename_projects_to_reports',
+		async () => {
+			await sql.query(RENAME_PROJECTS_TO_REPORTS_SQL, []);
+		},
+		applied
+	);
 
-	await runMigrationStep(sql, '2026-06-13_backfill_testing_sessions', async () => {
-		await sql.query(BACKFILL_TESTING_SESSIONS_SQL, []);
-	});
+	await runMigrationStep(
+		sql,
+		'2026-06-13_backfill_testing_sessions',
+		async () => {
+			await sql.query(BACKFILL_TESTING_SESSIONS_SQL, []);
+		},
+		applied
+	);
 
-	await runMigrationStep(sql, '2026-06-13_apply_schema_sql', async () => {
-		for (const statement of parseSchemaStatements(SCHEMA_SQL)) {
-			await sql.query(statement, []);
-		}
-	});
+	await runMigrationStep(
+		sql,
+		'2026-06-13_apply_schema_sql',
+		async () => {
+			for (const statement of parseSchemaStatements(SCHEMA_SQL)) {
+				await sql.query(statement, []);
+			}
+		},
+		applied
+	);
 
-	await runMigrationStep(sql, '2026-06-13_repair_issues_foreign_key', async () => {
-		await sql.query(REPAIR_ISSUES_FOREIGN_KEY_SQL, []);
-	});
+	await runMigrationStep(
+		sql,
+		'2026-06-13_repair_issues_foreign_key',
+		async () => {
+			await sql.query(REPAIR_ISSUES_FOREIGN_KEY_SQL, []);
+		},
+		applied
+	);
 
-	await runMigrationStep(sql, '2026-06-13_add_workflow_note', async () => {
-		await sql.query(ADD_WORKFLOW_NOTE_SQL, []);
-	});
+	await runMigrationStep(
+		sql,
+		'2026-06-13_add_workflow_note',
+		async () => {
+			await sql.query(ADD_WORKFLOW_NOTE_SQL, []);
+		},
+		applied
+	);
 
-	await runMigrationStep(sql, '2026-06-13_add_sort_order', async () => {
-		await sql.query(ADD_SORT_ORDER_SQL, []);
-	});
+	await runMigrationStep(
+		sql,
+		'2026-06-13_add_sort_order',
+		async () => {
+			await sql.query(ADD_SORT_ORDER_SQL, []);
+		},
+		applied
+	);
 
 	await verifyReportSchema(sql);
 }

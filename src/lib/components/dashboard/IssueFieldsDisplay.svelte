@@ -19,6 +19,9 @@
 		variant === 'print' ? 'text-sm text-zinc-600' : 'text-sm text-foreground'
 	);
 	const rowClass = $derived(variant === 'print' ? 'mt-3' : ui.field);
+	const emptyItemClass = $derived(
+		variant === 'print' ? 'list-none pl-0 text-zinc-500' : 'list-none pl-0 text-muted-foreground'
+	);
 </script>
 
 <div class={variant === 'print' ? '' : `grid ${ui.gridLg} sm:grid-cols-2`}>
@@ -33,7 +36,7 @@
 		<p class={labelClass}>Findings</p>
 		<ul class="{valueClass} mt-1 list-disc space-y-1 pl-5">
 			{#each displayList(issue.finding) as item}
-				<li class={item === EMPTY_DISPLAY ? 'list-none pl-0 text-muted-foreground' : ''}>{item}</li>
+				<li class={item === EMPTY_DISPLAY ? emptyItemClass : ''}>{item}</li>
 			{/each}
 		</ul>
 	</div>
@@ -42,7 +45,7 @@
 		<p class={labelClass}>Expected Result</p>
 		<ul class="{valueClass} mt-1 list-disc space-y-1 pl-5">
 			{#each displayList(issue.expected_result) as item}
-				<li class={item === EMPTY_DISPLAY ? 'list-none pl-0 text-muted-foreground' : ''}>{item}</li>
+				<li class={item === EMPTY_DISPLAY ? emptyItemClass : ''}>{item}</li>
 			{/each}
 		</ul>
 	</div>
@@ -61,7 +64,7 @@
 		<p class={labelClass}>Suggested Text / Behavior</p>
 		<ul class="{valueClass} mt-1 list-disc space-y-1 pl-5">
 			{#each displayList(issue.suggested_text_or_behavior) as item}
-				<li class={item === EMPTY_DISPLAY ? 'list-none pl-0 text-muted-foreground' : ''}>{item}</li>
+				<li class={item === EMPTY_DISPLAY ? emptyItemClass : ''}>{item}</li>
 			{/each}
 		</ul>
 	</div>
@@ -103,7 +106,7 @@
 				</p>
 			{/if}
 		{:else}
-			<p class="{valueClass} text-muted-foreground">{EMPTY_DISPLAY}</p>
+			<p class={variant === 'print' ? 'text-sm text-zinc-500' : `${valueClass} text-muted-foreground`}>{EMPTY_DISPLAY}</p>
 		{/if}
 	</div>
 </div>

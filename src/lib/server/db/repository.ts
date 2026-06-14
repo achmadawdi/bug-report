@@ -5,6 +5,64 @@ import { getSql } from './client.js';
 import { runMigrations } from './migrate.js';
 
 let seeded = false;
+let reportSummariesCache: ReportSummaryRow[] | null = null;
+
+export type ReportSummaryRow = {
+	slug: string;
+	title: string;
+	version: string;
+	group_slug: string | null;
+	group_title: string | null;
+	workflow_status: string;
+	platform: string;
+	game_version_tested: string;
+	test_date: string;
+	issue_count: number;
+	open_count: number;
+	critical_count: number;
+	fixed_count: number;
+	resolved_count: number;
+	sort_order: number;
+};
+
+export function bustReportSummariesCache(): void {
+	reportSummariesCache = null;
+}
+
+async function fetchReportSummaries(): Promise<ReportSummaryRow[]> {
+	const sql = getSql();
+	return (await sql`
+		SELECT
+			r.slug,
+			r.title,
+			r.version,
+			r.group_slug,
+			r.workflow_status,
+			r.sort_order,
+			COALESCE(MAX(ts.minecraft_edition), MAX(r.platform), '') AS platform,
+			COALESCE(MAX(ts.game_version_tested), MAX(r.version_tested), '') AS game_version_tested,
+			COALESCE(MAX(ts.test_date), MAX(r.test_date), '') AS test_date,
+			MAX(g.title) AS group_title,
+			COUNT(i.id)::int AS issue_count,
+			COUNT(i.id) FILTER (WHERE i.status = 'open' OR i.status = 'in_progress')::int AS open_count,
+			COUNT(i.id) FILTER (WHERE i.severity = 'Critical')::int AS critical_count,
+			COUNT(i.id) FILTER (WHERE i.status = 'fixed')::int AS fixed_count,
+			COUNT(i.id) FILTER (WHERE i.status IN ('fixed', 'wont_fix'))::int AS resolved_count
+		FROM reports r
+		LEFT JOIN report_testing_sessions ts ON ts.report_slug = r.slug
+		LEFT JOIN project_groups g ON g.slug = r.group_slug
+		LEFT JOIN issues i ON i.report_slug = r.slug
+		GROUP BY r.slug, r.title, r.version, r.group_slug, r.workflow_status, r.sort_order
+		ORDER BY r.sort_order, r.title
+	`) as ReportSummaryRow[];
+}
+
+export async function getCachedReportSummaries(): Promise<ReportSummaryRow[]> {
+	await ensureReady();
+	if (reportSummariesCache) return reportSummariesCache;
+	reportSummariesCache = await fetchReportSummaries();
+	return reportSummariesCache;
+}
 
 type ReportRow = {
 	slug: string;
@@ -134,63 +192,68 @@ export async function getReport(slug: string): Promise<ReportData> {
 	await ensureReady();
 	const sql = getSql();
 
-	const reportRows = (await sql`
-		SELECT slug, title, type, platform, version_tested, device, tester,
-			tester_version, test_date, test_scope, version, source_file, group_slug
-		FROM reports
-		WHERE slug = ${slug}
-	`) as ReportRow[];
+	const [reportRows, sessionRows, severityRows, cleanLevelRows, issueRows, evidenceRows] =
+		await Promise.all([
+			sql`
+				SELECT slug, title, type, platform, version_tested, device, tester,
+					tester_version, test_date, test_scope, version, source_file, group_slug
+				FROM reports
+				WHERE slug = ${slug}
+			`,
+			sql`
+				SELECT test_date, minecraft_edition, game_version_tested, device_type,
+					tester_count, tester_level, test_scope, environment
+				FROM report_testing_sessions
+				WHERE report_slug = ${slug}
+			`,
+			sql`
+				SELECT severity, description
+				FROM report_severity_guide
+				WHERE report_slug = ${slug}
+			`,
+			sql`
+				SELECT level_name, sort_order
+				FROM report_clean_levels
+				WHERE report_slug = ${slug}
+				ORDER BY sort_order, level_name
+			`,
+			sql`
+				SELECT id, area, title, severity, category, finding, expected_result,
+					status, notes, evidence, reason, suggested_text_or_behavior, source_page
+				FROM issues
+				WHERE report_slug = ${slug}
+				ORDER BY id
+			`,
+			sql`
+				SELECT issue_id, type, src, caption, sort_order
+				FROM evidence_media
+				WHERE report_slug = ${slug}
+				ORDER BY issue_id, sort_order, id
+			`
+		]);
 
-	if (reportRows.length === 0) {
+	const typedReportRows = reportRows as ReportRow[];
+	const typedSessionRows = sessionRows as TestingSessionRow[];
+	const typedSeverityRows = severityRows as SeverityRow[];
+	const typedCleanLevelRows = cleanLevelRows as CleanLevelRow[];
+	const typedIssueRows = issueRows as IssueRow[];
+	const typedEvidenceRows = evidenceRows as EvidenceRow[];
+
+	if (typedReportRows.length === 0) {
 		throw new Error(`Report "${slug}" not found`);
 	}
 
-	const reportRow = reportRows[0] as ReportRow;
-
-	const sessionRows = (await sql`
-		SELECT test_date, minecraft_edition, game_version_tested, device_type,
-			tester_count, tester_level, test_scope, environment
-		FROM report_testing_sessions
-		WHERE report_slug = ${slug}
-	`) as TestingSessionRow[];
-
-	const severityRows = (await sql`
-		SELECT severity, description
-		FROM report_severity_guide
-		WHERE report_slug = ${slug}
-	`) as SeverityRow[];
-
-	const cleanLevelRows = (await sql`
-		SELECT level_name, sort_order
-		FROM report_clean_levels
-		WHERE report_slug = ${slug}
-		ORDER BY sort_order, level_name
-	`) as CleanLevelRow[];
-
-	const issueRows = (await sql`
-		SELECT id, area, title, severity, category, finding, expected_result,
-			status, notes, evidence, reason, suggested_text_or_behavior, source_page
-		FROM issues
-		WHERE report_slug = ${slug}
-		ORDER BY id
-	`) as IssueRow[];
-
-	const evidenceRows = (await sql`
-		SELECT issue_id, type, src, caption, sort_order
-		FROM evidence_media
-		WHERE report_slug = ${slug}
-		ORDER BY issue_id, sort_order, id
-	`) as EvidenceRow[];
+	const reportRow = typedReportRows[0] as ReportRow;
 
 	const severity_guide: Record<string, string> = {};
-	for (const row of severityRows) {
+	for (const row of typedSeverityRows) {
 		severity_guide[row.severity] = row.description;
 	}
 
-	const levels_with_no_issues_recorded = cleanLevelRows.map((row) => row.level_name);
+	const levels_with_no_issues_recorded = typedCleanLevelRows.map((row) => row.level_name);
 
 	const evidenceByIssue = new Map<string, EvidenceMedia[]>();
-	for (const row of evidenceRows) {
+	for (const row of typedEvidenceRows) {
 		const media: EvidenceMedia = {
 			type: row.type as EvidenceMedia['type'],
 			src: row.src,
@@ -201,7 +264,7 @@ export async function getReport(slug: string): Promise<ReportData> {
 		evidenceByIssue.set(row.issue_id, list);
 	}
 
-	const issues: Issue[] = issueRows.map((row) => {
+	const issues: Issue[] = typedIssueRows.map((row) => {
 		const issue: Issue = {
 			id: row.id,
 			area: row.area,
@@ -225,7 +288,7 @@ export async function getReport(slug: string): Promise<ReportData> {
 		return issue;
 	});
 
-	const testing_session = buildTestingSession(reportRow, sessionRows[0]);
+	const testing_session = buildTestingSession(reportRow, typedSessionRows[0]);
 
 	const sourceFile = reportRow.source_file.trim() === '' ? null : reportRow.source_file;
 
@@ -262,6 +325,8 @@ export async function updateIssueStatus(
 	if (rows.length === 0) {
 		throw new Error(`Issue "${issueId}" not found`);
 	}
+
+	bustReportSummariesCache();
 }
 
 export async function saveReport(slug: string, data: ReportData): Promise<void> {
@@ -383,6 +448,8 @@ export async function saveReport(slug: string, data: ReportData): Promise<void> 
 
 		return queries;
 	});
+
+	bustReportSummariesCache();
 }
 
 export type ProjectGroupRow = {
@@ -441,6 +508,43 @@ export async function getProjectGroup(slug: string): Promise<ProjectGroupRow | n
 		SELECT slug, title FROM project_groups WHERE slug = ${slug}
 	`) as ProjectGroupRow[];
 	return rows[0] ?? null;
+}
+
+export async function deleteProjectGroup(slug: string): Promise<void> {
+	await ensureReady();
+	const sql = getSql();
+	const rows = (await sql`
+		DELETE FROM project_groups WHERE slug = ${slug} RETURNING slug
+	`) as { slug: string }[];
+
+	if (rows.length === 0) {
+		throw new Error(`Group "${slug}" not found`);
+	}
+
+	bustReportSummariesCache();
+}
+
+export async function listEvidenceSrcForReport(slug: string): Promise<string[]> {
+	await ensureReady();
+	const sql = getSql();
+	const rows = (await sql`
+		SELECT src FROM evidence_media WHERE report_slug = ${slug}
+	`) as { src: string }[];
+	return rows.map((row) => row.src);
+}
+
+export async function deleteReport(slug: string): Promise<void> {
+	await ensureReady();
+	const sql = getSql();
+	const rows = (await sql`
+		DELETE FROM reports WHERE slug = ${slug} RETURNING slug
+	`) as { slug: string }[];
+
+	if (rows.length === 0) {
+		throw new Error(`Report "${slug}" not found`);
+	}
+
+	bustReportSummariesCache();
 }
 
 export async function listProjectGroupStats(): Promise<ProjectGroupStatsRow[]> {
@@ -509,6 +613,7 @@ export async function setReportGroupSlug(
 	}
 
 	await appendReportSortOrder(reportSlug);
+	bustReportSummariesCache();
 }
 
 async function getMaxReportSortOrder(groupSlug: string | null): Promise<number> {
@@ -538,6 +643,8 @@ export async function appendReportSortOrder(reportSlug: string): Promise<void> {
 		SET sort_order = ${nextOrder}, updated_at = NOW()
 		WHERE slug = ${reportSlug}
 	`;
+
+	bustReportSummariesCache();
 }
 
 export async function reorderProjectGroups(orderedSlugs: string[]): Promise<void> {
@@ -596,6 +703,8 @@ export async function reorderReportsInGroup(
 			txn`UPDATE reports SET sort_order = ${index}, updated_at = NOW() WHERE slug = ${slug}`
 		)
 	);
+
+	bustReportSummariesCache();
 }
 
 export async function reorderStandaloneReports(orderedSlugs: string[]): Promise<void> {
@@ -620,6 +729,8 @@ export async function reorderStandaloneReports(orderedSlugs: string[]): Promise<
 			txn`UPDATE reports SET sort_order = ${index}, updated_at = NOW() WHERE slug = ${slug}`
 		)
 	);
+
+	bustReportSummariesCache();
 }
 
 export async function listStandaloneReportSlugs(): Promise<string[]> {
@@ -686,8 +797,11 @@ export async function updateReportWorkflowStatus(
 		throw new Error(`Report "${slug}" not found`);
 	}
 
-	return {
+	const workflow = {
 		status: rows[0].workflow_status,
 		note: rows[0].workflow_note?.trim() || null
 	};
+
+	bustReportSummariesCache();
+	return workflow;
 }

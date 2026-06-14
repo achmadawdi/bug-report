@@ -22,31 +22,38 @@
 	} from '$lib/components/ui/dropdown-menu/index.js';
 	import EvidenceThumbnails from './EvidenceThumbnails.svelte';
 	import EvidenceLightbox from './EvidenceLightbox.svelte';
-	import { enhance } from '$app/forms';
+	import ConfirmDeleteDialog from '$lib/components/ConfirmDeleteDialog.svelte';
 	import { toast } from 'svelte-sonner';
 	import {
 		enhanceReportForm,
 		getReportSlugContext,
 		reportFormAction
 	} from '$lib/report-forms.js';
+	import { enhance } from '$app/forms';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import Loader2Icon from '@lucide/svelte/icons/loader-2';
+	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import { ui } from '$lib/ui-layout.js';
 
 	let {
 		issue,
-		onclick
+		onclick,
+		onDeleted
 	}: {
 		issue: Issue;
 		onclick: () => void;
+		onDeleted?: (id: string) => void;
 	} = $props();
 
 	let previewMedia = $state<EvidenceMedia | null>(null);
 	let lightboxOpen = $state(false);
 	let statusForm = $state<HTMLFormElement | null>(null);
+	let deleteForm = $state<HTMLFormElement | null>(null);
 	let statusMenuOpen = $state(false);
+	let deleteDialogOpen = $state(false);
 	let statusUpdating = $state(false);
+	let deleteSaving = $state(false);
 	let undoStatus: BugStatus | null = null;
 
 	const reportSlug = getReportSlugContext();
@@ -62,6 +69,12 @@
 		statusForm.requestSubmit();
 	}
 
+	function openDetail() {
+		statusMenuOpen = false;
+		deleteDialogOpen = false;
+		onclick();
+	}
+
 	function openPreview(media: EvidenceMedia) {
 		previewMedia = media;
 		lightboxOpen = true;
@@ -72,15 +85,16 @@
 		if (target.closest('form, button, a, input, select, textarea, [data-no-card-click]')) {
 			return;
 		}
-		onclick();
+		openDetail();
 	}
 
 	function handleCardKeydown(event: KeyboardEvent) {
 		if (event.key === 'Enter' || event.key === ' ') {
 			event.preventDefault();
-			onclick();
+			openDetail();
 		}
 	}
+
 </script>
 
 <div class="group w-full">
@@ -104,9 +118,34 @@
 							<p class="font-mono text-xs text-muted-foreground">{issue.id}</p>
 							<h3 class="text-base font-semibold leading-snug sm:text-lg">{issue.title}</h3>
 						</div>
-						<ChevronRightIcon
-							class="mt-1 size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary"
-						/>
+						<div class="flex shrink-0 items-center gap-1">
+							<button
+								type="button"
+								data-no-card-click
+								aria-label="Delete bug"
+								class="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/30"
+								onclick={(event) => {
+									event.stopPropagation();
+									statusMenuOpen = false;
+									deleteDialogOpen = true;
+								}}
+							>
+								<Trash2Icon class="size-3.5" />
+							</button>
+							<button
+								type="button"
+								data-no-card-click
+								aria-label="View bug details"
+								class="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+								onclick={(event) => {
+									event.stopPropagation();
+									openDetail();
+								}}
+							>
+								Details
+								<ChevronRightIcon class="size-3.5" />
+							</button>
+						</div>
 					</div>
 
 					<div class={ui.badgeRow}>
@@ -120,6 +159,7 @@
 							class="inline-flex"
 							role="presentation"
 							data-no-card-click
+							onpointerdown={(event) => event.stopPropagation()}
 							onclick={(event) => event.stopPropagation()}
 							onkeydown={(event) => event.stopPropagation()}
 						>
@@ -170,6 +210,7 @@
 													type="button"
 													disabled={statusUpdating || Boolean(props.disabled)}
 													aria-busy={statusUpdating}
+													aria-label={`Change status (${STATUS_LABELS[issue.status]})`}
 													class={cn(
 														badgeVariants({ variant: 'outline' }),
 														STATUS_STYLES[issue.status],
@@ -243,3 +284,42 @@
 </div>
 
 <EvidenceLightbox bind:media={previewMedia} bind:open={lightboxOpen} />
+
+<form
+	bind:this={deleteForm}
+	method="POST"
+	action={reportFormAction(reportSlug, '?/deleteIssue')}
+	class="hidden"
+	use:enhance={enhanceReportForm(reportSlug, {
+		onSubmit: () => {
+			deleteSaving = true;
+		},
+		onSuccess: () => {
+			deleteDialogOpen = false;
+			toast.success(`${issue.id} deleted`);
+			onDeleted?.(issue.id);
+		},
+		onFailure: (data) => {
+			toast.error(data?.message ?? 'Failed to delete bug');
+		},
+		onError: () => {
+			toast.error('An unexpected error occurred while deleting the bug');
+		},
+		onFinally: () => {
+			deleteSaving = false;
+		}
+	})}
+>
+	<input type="hidden" name="id" value={issue.id} />
+</form>
+
+<ConfirmDeleteDialog
+	bind:open={deleteDialogOpen}
+	title="Delete {issue.id}?"
+	description="Delete “{issue.title}”? This permanently removes the bug and any attached evidence. This cannot be undone."
+	loading={deleteSaving}
+	onConfirm={() => deleteForm?.requestSubmit()}
+	onCancel={() => {
+		deleteDialogOpen = false;
+	}}
+/>

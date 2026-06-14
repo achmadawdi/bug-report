@@ -36,6 +36,7 @@
 		onExportJson,
 		onExportPdf,
 		onAdd,
+		onClearSearch,
 		onClearFilters
 	}: {
 		filters: FilterState;
@@ -47,6 +48,7 @@
 		onExportJson: () => void;
 		onExportPdf: () => void;
 		onAdd: () => void;
+		onClearSearch: () => void;
 		onClearFilters: () => void;
 	} = $props();
 
@@ -54,6 +56,7 @@
 		Object.values(severityCounts).reduce((acc, count) => acc + count, 0)
 	);
 	const filtersActive = $derived(isFiltersActive(filters));
+	const searchActive = $derived(Boolean(filters.search.trim()));
 
 	const sortLabel = $derived(
 		filters.sort === 'id-asc'
@@ -84,10 +87,22 @@
 					/>
 					<Input
 						bind:ref={searchInput}
-						class="h-8 bg-background/40 border-border-subtle pl-8 text-sm focus-visible:ring-primary-muted/30 focus-visible:border-primary/40"
+						class="h-8 bg-background/40 border-border-subtle pl-8 pr-8 text-sm focus-visible:ring-primary-muted/30 focus-visible:border-primary/40"
 						placeholder="Search bugs… (/)"
 						bind:value={filters.search}
 					/>
+					{#if searchActive}
+						<Button
+							type="button"
+							variant="ghost"
+							size="icon-sm"
+							class="absolute top-1/2 right-1 -translate-y-1/2 text-muted-foreground"
+							aria-label="Clear search"
+							onclick={onClearSearch}
+						>
+							<XIcon class="size-3.5" />
+						</Button>
+					{/if}
 				</div>
 
 				<div class="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">

@@ -209,4 +209,9 @@
 		backdrop-filter: blur(8px);
 		border: 1px solid var(--border-subtle);
 	}
+	.tab-pane-transition {
+		transition: opacity 180ms cubic-bezier(0.2, 0.8, 0.4, 1),
+		            transform 180ms cubic-bezier(0.2, 0.8, 0.4, 1),
+		            visibility 180ms cubic-bezier(0.2, 0.8, 0.4, 1);
+	}
 }

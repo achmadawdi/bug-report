@@ -7,7 +7,7 @@ import {
 	resolveDuplicateIssueIds
 } from '$lib/import-report.js';
 import { resolveGroupAssignment } from '$lib/server/groups.js';
-import { createReport, importReport } from '$lib/server/store.js';
+import { createReport, deleteReport, importReport } from '$lib/server/store.js';
 import type { Actions } from './$types.js';
 
 async function groupFromForm(formData: FormData): Promise<string | null> {
@@ -88,6 +88,24 @@ export const actions: Actions = {
 
 			return fail(500, {
 				message: error instanceof Error ? error.message : 'Failed to import report.'
+			});
+		}
+	},
+
+	deleteReport: async ({ request }) => {
+		const formData = await request.formData();
+		const slug = String(formData.get('slug') ?? '').trim();
+
+		if (!slug) {
+			return fail(400, { message: 'Report slug is required.' });
+		}
+
+		try {
+			await deleteReport(slug);
+			return { success: true };
+		} catch (err) {
+			return fail(500, {
+				message: err instanceof Error ? err.message : 'Failed to delete report.'
 			});
 		}
 	}

@@ -7,6 +7,7 @@
 	import DragHandle from '$lib/components/sortable/DragHandle.svelte';
 	import FolderTreeIcon from '@lucide/svelte/icons/folder-tree';
 	import PlusIcon from '@lucide/svelte/icons/plus';
+	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import { ui } from '$lib/ui-layout.js';
 	import { cn } from '$lib/utils.js';
 	import { goto } from '$app/navigation';
@@ -16,6 +17,8 @@
 		group,
 		onOpenReport,
 		onCreateReport,
+		onDeleteGroup,
+		onDeleteReport,
 		onReorderReports,
 		groupsOnlyLayout = false,
 		sortable = false,
@@ -25,6 +28,8 @@
 		group: ProjectGroupDetail;
 		onOpenReport: (report: ReportSummary) => void;
 		onCreateReport?: () => void;
+		onDeleteGroup?: () => void;
+		onDeleteReport?: (report: ReportSummary) => void;
 		onReorderReports?: (slugs: string[]) => void | Promise<void>;
 		groupsOnlyLayout?: boolean;
 		sortable?: boolean;
@@ -59,7 +64,7 @@
 	}
 </script>
 
-<Card class={cn('gap-0 overflow-hidden border-border bg-card/25 backdrop-blur-md py-0 shadow-sm', className)}>
+<Card class={cn('group/group gap-0 overflow-hidden border-border bg-card/25 backdrop-blur-md py-0 shadow-sm', className)}>
 	<CardContent class="p-0">
 		<div
 			class="flex items-center justify-between gap-3 border-b border-border/40 {ui.cardHeader}"
@@ -80,18 +85,32 @@
 				</button>
 			</div>
 
-			{#if onCreateReport}
-				<Button
-					type="button"
-					size="sm"
-					variant="ghost"
-					class="{ui.controlSm} shrink-0 px-2.5 text-xs text-muted-foreground hover:bg-muted/40 hover:text-foreground"
-					onclick={onCreateReport}
-				>
-					<PlusIcon class="size-3.5" />
-					New report
-				</Button>
-			{/if}
+			<div class="flex shrink-0 items-center gap-1">
+				{#if onDeleteGroup}
+					<Button
+						type="button"
+						size="sm"
+						variant="ghost"
+						class="{ui.controlSm} shrink-0 px-2 text-xs text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover/group:opacity-100"
+						aria-label="Delete group"
+						onclick={onDeleteGroup}
+					>
+						<Trash2Icon class="size-3.5" />
+					</Button>
+				{/if}
+				{#if onCreateReport}
+					<Button
+						type="button"
+						size="sm"
+						variant="ghost"
+						class="{ui.controlSm} shrink-0 px-2.5 text-xs text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+						onclick={onCreateReport}
+					>
+						<PlusIcon class="size-3.5" />
+						New report
+					</Button>
+				{/if}
+			</div>
 		</div>
 
 		{#if reports.length > 0}
@@ -109,6 +128,7 @@
 								variant="nested"
 								dragHandleAttrs={reportDragHandleAttrs}
 								onclick={() => onOpenReport(report)}
+								onDelete={onDeleteReport}
 							/>
 						{/snippet}
 					</SortableList>
@@ -119,6 +139,7 @@
 								{report}
 								variant="nested"
 								onclick={() => onOpenReport(report)}
+								onDelete={onDeleteReport}
 							/>
 						{/each}
 					</div>

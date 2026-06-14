@@ -30,8 +30,12 @@
 	} from '$lib/navigation-loading.js';
 	import { markRouteDataReady } from '$lib/preload.js';
 	import DashboardPageSkeleton from '$lib/components/skeletons/DashboardPageSkeleton.svelte';
+	import ConfirmDeleteDialog from '$lib/components/ConfirmDeleteDialog.svelte';
+	import { clearLastVisitedForGroup } from '$lib/groups.js';
+	import { cleanupDeletedReport } from '$lib/delete-cleanup.js';
 	import { onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
+	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
 
@@ -42,13 +46,18 @@
 	let workflowFilter = $state<'all' | ReportWorkflowStatus>('all');
 	let localGroups = $state<ProjectGroupDetail[]>([]);
 	let localStandalone = $state<ReportSummary[]>([]);
+	let pendingGroupDelete = $state<ProjectGroupDetail | null>(null);
+	let pendingReportDelete = $state<ReportSummary | null>(null);
+	let groupDeleteOpen = $state(false);
+	let reportDeleteOpen = $state(false);
+	let deleteLoading = $state(false);
 
 	$effect(() => {
 		localGroups = data.groups.map((group) => ({
 			...group,
 			reports: [...group.reports]
 		}));
-		localStandalone = [...data.projects];
+		localStandalone = [...data.standaloneProjects];
 	});
 
 	const WORKFLOW_FILTERS = [
@@ -62,7 +71,7 @@
 		const needle = query.trim().toLowerCase();
 		if (!needle) return true;
 
-		return [report.title, report.slug, report.platform, report.version, report.groupTitle]
+		return [report.title, report.slug, report.platform, report.version, report.gameVersion, report.testDate, report.groupTitle]
 			.filter((value): value is string => Boolean(value?.trim()))
 			.some((value) => value.toLowerCase().includes(needle));
 	}
@@ -85,7 +94,7 @@
 	);
 
 	const filteredStandalone = $derived(
-		(filtersActive ? data.projects : localStandalone).filter(
+		(filtersActive ? data.standaloneProjects : localStandalone).filter(
 			(report) => reportMatchesSearch(report, searchQuery) && reportMatchesWorkflow(report)
 		)
 	);
@@ -235,6 +244,76 @@
 			toast.error(err instanceof Error ? err.message : 'Failed to reorder reports');
 		}
 	}
+
+	function requestDeleteGroup(group: ProjectGroupDetail) {
+		pendingGroupDelete = group;
+		groupDeleteOpen = true;
+	}
+
+	async function confirmDeleteGroup() {
+		const group = pendingGroupDelete;
+		if (!group) return;
+
+		deleteLoading = true;
+		try {
+			await submitHomeAction('deleteGroup', { groupSlug: group.slug });
+			clearLastVisitedForGroup(group.slug);
+			localGroups = localGroups.filter((item) => item.slug !== group.slug);
+			groupDeleteOpen = false;
+			pendingGroupDelete = null;
+			await invalidateAll();
+			toast.success(`Deleted group "${group.title}".`);
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : 'Failed to delete group');
+		} finally {
+			deleteLoading = false;
+		}
+	}
+
+	function requestDeleteReport(report: ReportSummary) {
+		pendingReportDelete = report;
+		reportDeleteOpen = true;
+	}
+
+	async function submitReportDelete(slug: string) {
+		const formData = new FormData();
+		formData.set('slug', slug);
+
+		const response = await fetch('/reports?/deleteReport', { method: 'POST', body: formData });
+		const result = deserialize(await response.text());
+
+		if (result.type === 'failure') {
+			throw new Error((result.data as { message?: string })?.message ?? 'Request failed');
+		}
+
+		if (result.type === 'error') {
+			throw new Error('An unexpected error occurred');
+		}
+	}
+
+	async function confirmDeleteReport() {
+		const report = pendingReportDelete;
+		if (!report) return;
+
+		deleteLoading = true;
+		try {
+			await submitReportDelete(report.slug);
+			localStandalone = localStandalone.filter((item) => item.slug !== report.slug);
+			localGroups = localGroups.map((group) => ({
+				...group,
+				reports: group.reports.filter((item) => item.slug !== report.slug)
+			}));
+			await cleanupDeletedReport(report.slug);
+			reportDeleteOpen = false;
+			pendingReportDelete = null;
+			await invalidateAll();
+			toast.success(`Deleted report "${report.title}".`);
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : 'Failed to delete report');
+		} finally {
+			deleteLoading = false;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -244,7 +323,11 @@
 {#if showLoadingSkeleton}
 	<DashboardPageSkeleton />
 {:else}
-	<div class="{ui.pageShell} min-h-[calc(100vh-2.5rem)] {ui.pageStack}">
+	<div
+		in:fly={{ y: 8, duration: 180, delay: 40 }}
+		out:fly={{ y: -6, duration: 120 }}
+		class="{ui.pageShell} min-h-[calc(100vh-2.5rem)] {ui.pageStack}"
+	>
 		<div class="space-y-4 py-4 sm:py-6">
 			<div class="text-center">
 				<h1
@@ -352,6 +435,8 @@
 							{dragHandleAttrs}
 							onOpenReport={openReport}
 							onCreateReport={() => openCreateDialog(group.slug)}
+							onDeleteGroup={() => requestDeleteGroup(group)}
+							onDeleteReport={requestDeleteReport}
 							onReorderReports={(slugs) => persistGroupReports(group.slug, slugs)}
 							{groupsOnlyLayout}
 						/>
@@ -369,6 +454,7 @@
 							{report}
 							{dragHandleAttrs}
 							onclick={() => openReport(report)}
+							onDelete={requestDeleteReport}
 						/>
 					{/snippet}
 				</SortableList>
@@ -379,12 +465,14 @@
 						class={groupsOnlyLayout ? '' : 'md:col-span-2 lg:col-span-3'}
 						onOpenReport={openReport}
 						onCreateReport={() => openCreateDialog(group.slug)}
+						onDeleteGroup={() => requestDeleteGroup(group)}
+						onDeleteReport={requestDeleteReport}
 						{groupsOnlyLayout}
 					/>
 				{/each}
 
 				{#each filteredStandalone as report (report.slug)}
-					<ReportCard {report} onclick={() => openReport(report)} />
+					<ReportCard {report} onclick={() => openReport(report)} onDelete={requestDeleteReport} />
 				{/each}
 			{/if}
 
@@ -427,4 +515,30 @@
 	groups={data.groups}
 	mode={dialogMode}
 	{defaultGroupSlug}
+/>
+
+<ConfirmDeleteDialog
+	bind:open={groupDeleteOpen}
+	title="Delete group"
+	description={pendingGroupDelete
+		? `Delete "${pendingGroupDelete.title}"? Reports in this group (${pendingGroupDelete.reportCount}) will become standalone. Reports and issues are not deleted.`
+		: ''}
+	loading={deleteLoading}
+	onConfirm={confirmDeleteGroup}
+	onCancel={() => {
+		pendingGroupDelete = null;
+	}}
+/>
+
+<ConfirmDeleteDialog
+	bind:open={reportDeleteOpen}
+	title="Delete report"
+	description={pendingReportDelete
+		? `Delete "${pendingReportDelete.title}"? This permanently removes ${pendingReportDelete.issueCount} issues and all evidence files. This cannot be undone.`
+		: ''}
+	loading={deleteLoading}
+	onConfirm={confirmDeleteReport}
+	onCancel={() => {
+		pendingReportDelete = null;
+	}}
 />

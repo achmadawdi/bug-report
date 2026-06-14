@@ -197,3 +197,10 @@ export function clearFilters(): FilterState {
 		view: 'active'
 	};
 }
+
+export function clearSearchFilter(filters: FilterState): FilterState {
+	return {
+		...filters,
+		search: ''
+	};
+}

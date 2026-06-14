@@ -46,12 +46,12 @@
 	import CalendarIcon from '@lucide/svelte/icons/calendar';
 	import TargetIcon from '@lucide/svelte/icons/target';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
+	import SettingsIcon from '@lucide/svelte/icons/settings';
 	import DownloadIcon from '@lucide/svelte/icons/download';
 	import FileTextIcon from '@lucide/svelte/icons/file-text';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import ServerIcon from '@lucide/svelte/icons/server';
 	import GraduationCapIcon from '@lucide/svelte/icons/graduation-cap';
-	import FolderTreeIcon from '@lucide/svelte/icons/folder-tree';
 	import Loader2Icon from '@lucide/svelte/icons/loader-2';
 	import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
 	import ClockIcon from '@lucide/svelte/icons/clock';
@@ -68,6 +68,9 @@
 
 	import GroupAssignField from './GroupAssignField.svelte';
 	import LinkedText from '$lib/components/LinkedText.svelte';
+	import ConfirmDeleteDialog from '$lib/components/ConfirmDeleteDialog.svelte';
+	import { cleanupDeletedReport } from '$lib/delete-cleanup.js';
+	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 
 	let {
 		report,
@@ -76,6 +79,7 @@
 		currentGroupSlug = null,
 		workflowStatus = 'open',
 		workflowNote = null,
+		issueCount = 0,
 		embedded = false,
 		onExportJson,
 		onExportPdf
@@ -86,6 +90,7 @@
 		currentGroupSlug?: string | null;
 		workflowStatus?: ReportWorkflowStatus;
 		workflowNote?: string | null;
+		issueCount?: number;
 		embedded?: boolean;
 		onExportJson: () => void;
 		onExportPdf: () => void;
@@ -107,6 +112,9 @@
 	let workflowNoteEditMode = $state(false);
 	let workflowNoteDraft = $state('');
 	let workflowTargetStatus = $state<ReportWorkflowStatus | null>(null);
+	let deleteDialogOpen = $state(false);
+	let deleteSaving = $state(false);
+	let deleteFormSubmit = $state<HTMLButtonElement | null>(null);
 	let groupSlug = $state('');
 	let newGroupName = $state('');
 	let reportDraft = $state({
@@ -211,10 +219,6 @@
 		workflowDialogOpen = false;
 		submitWorkflowStatus(workflowTargetStatus, note);
 	}
-
-	const currentGroupTitle = $derived(
-		groups.find((group) => group.slug === currentGroupSlug)?.title ?? null
-	);
 
 	const showDetailsSection = $derived(
 		Boolean(
@@ -372,35 +376,35 @@
 						</DropdownMenuContent>
 					</DropdownMenu>
 
-					<Button
-						type="button"
-						size="sm"
-						variant="outline"
-						class="{ui.controlSm} shrink-0 px-3 text-xs border-border-subtle bg-background/40 hover:bg-muted/40 hover:text-foreground transition-colors"
-						onclick={openEdit}
-					>
-					<PencilIcon class="size-3.5" />
-					Edit
-				</Button>
+					<DropdownMenu>
+						<DropdownMenuTrigger>
+							{#snippet child({ props })}
+								<Button
+									{...props}
+									type="button"
+									size="icon-sm"
+									variant="outline"
+									class="size-8 shrink-0 border-border-subtle bg-background/40 hover:bg-muted/40 hover:text-foreground transition-colors"
+									aria-label="Report settings"
+								>
+									<SettingsIcon class="size-3.5" />
+								</Button>
+							{/snippet}
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="end">
+							<DropdownMenuItem onclick={openEdit}>
+								<PencilIcon class="size-4" />
+								Edit report
+							</DropdownMenuItem>
+							<DropdownMenuItem variant="destructive" onclick={() => (deleteDialogOpen = true)}>
+								<Trash2Icon class="size-4" />
+								Delete report
+							</DropdownMenuItem>
+						</DropdownMenuContent>
+					</DropdownMenu>
 			</div>
 		</div>
 	</div>
-
-		{#if currentGroupTitle}
-			<div class="border-t border-border/60 px-4 py-3 md:px-6">
-				<div class="flex items-start gap-2.5">
-					<div class={ui.iconTile}>
-						<FolderTreeIcon class={ui.iconTileIcon} />
-					</div>
-					<div class="min-w-0">
-						<p class={ui.sectionTitle}>Project group</p>
-						<p class="mt-0.5 text-sm leading-snug font-medium text-foreground/90">
-							{currentGroupTitle}
-						</p>
-					</div>
-				</div>
-			</div>
-		{/if}
 
 		{#if showMetadataDetails}
 			<div class="border-t border-border/60 {ui.cardPadding}">
@@ -823,3 +827,44 @@
 		</DialogFooter>
 	</DialogContent>
 </Dialog>
+
+<form
+	method="POST"
+	action={reportFormAction(reportSlug, 'deleteReport')}
+	use:enhance={enhanceReportForm(reportSlug, {
+		onSubmit: () => {
+			deleteSaving = true;
+		},
+		onSuccess: async () => {
+			deleteDialogOpen = false;
+			await cleanupDeletedReport(reportSlug);
+			toast.success(`Deleted report "${report.title}".`);
+		},
+		onFailure: (data) => {
+			toast.error(data?.message ?? 'Failed to delete report');
+		},
+		onError: () => {
+			toast.error('Failed to delete report');
+		},
+		onFinally: () => {
+			deleteSaving = false;
+		}
+	})}
+	class="hidden"
+	aria-hidden="true"
+>
+	<button type="submit" bind:this={deleteFormSubmit} aria-label="Confirm delete report"></button>
+</form>
+
+<ConfirmDeleteDialog
+	bind:open={deleteDialogOpen}
+	title="Delete report"
+	description={`Delete "${report.title}"? This permanently removes ${issueCount} issues and all evidence files. This cannot be undone.`}
+	loading={deleteSaving}
+	onConfirm={() => {
+		deleteFormSubmit?.click();
+	}}
+	onCancel={() => {
+		deleteDialogOpen = false;
+	}}
+/>

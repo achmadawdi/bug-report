@@ -25,8 +25,14 @@
 <div class="min-h-screen bg-background text-foreground transition-colors duration-200">
 	<NavigationProgressBar />
 	<TabBar projects={data.projects} groups={data.groups} />
-	{@render children()}
-	<ReportHost />
+	<main class="grid grid-cols-1 grid-rows-1 items-start">
+		<div class="col-start-1 row-start-1 min-w-0 w-full">
+			{@render children()}
+		</div>
+		<div class="pointer-events-none col-start-1 row-start-1 min-w-0 w-full">
+			<ReportHost />
+		</div>
+	</main>
 </div>
 
 <Toaster richColors closeButton position="bottom-left" class="z-[100]" />

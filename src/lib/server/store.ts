@@ -18,9 +18,9 @@ import { resolveDuplicateIssueIds } from '$lib/import-report.js';
 import { generateNextBugId } from '$lib/issues.js';
 import {
 	ensureDbReady,
+	canUseR2Storage,
 	getReport as getReportData,
-	listReportSlugs,
-	listStandaloneReportSlugs,
+	getCachedReportSummaries,
 	reportExists as checkReportExists,
 	saveReport,
 	updateIssueStatus as updateIssueStatusDb,
@@ -30,9 +30,11 @@ import {
 	projectGroupExists,
 	createProjectGroup as createProjectGroupDb,
 	getProjectGroup as getProjectGroupDb,
+	deleteProjectGroup as deleteProjectGroupDb,
+	listEvidenceSrcForReport,
+	deleteReport as deleteReportDb,
 	listProjectGroupStats,
 	getReportGroupSlug,
-	listReportsInGroup,
 	setReportGroupSlug as setReportGroupSlugDb,
 	appendReportSortOrder,
 	reorderProjectGroups,
@@ -42,6 +44,7 @@ import {
 	getReportWorkflowStatus,
 	updateReportWorkflowStatus
 } from '$lib/server/storage/index.js';
+import type { ReportSummaryRow } from '$lib/server/storage/index.js';
 
 export type ImportReportOptions = {
 	name?: string;
@@ -57,6 +60,7 @@ export type ReportSummary = {
 	issueCount: number;
 	platform: string;
 	version: string;
+	gameVersion: string;
 	openCount: number;
 	criticalCount: number;
 	fixedCount: number;
@@ -217,65 +221,109 @@ export async function ensureReportsReady(): Promise<void> {
 	await ensureDbReady();
 }
 
+function normalizeWorkflowStatus(status: string): ReportWorkflowStatus {
+	return status === 'open' || status === 'resolved' || status === 'postponed' ? status : 'open';
+}
+
+function summaryFromRow(row: ReportSummaryRow): ReportSummary {
+	return {
+		slug: row.slug,
+		title: row.title,
+		issueCount: row.issue_count,
+		platform: row.platform,
+		version: row.version,
+		gameVersion: row.game_version_tested,
+		openCount: row.open_count,
+		criticalCount: row.critical_count,
+		fixedCount: row.fixed_count,
+		resolvedCount: row.resolved_count,
+		groupSlug: row.group_slug,
+		groupTitle: row.group_title,
+		testDate: row.test_date,
+		workflowStatus: normalizeWorkflowStatus(row.workflow_status)
+	};
+}
+
+function rollupReports(reports: ReportSummary[]) {
+	return reports.reduce(
+		(acc, report) => ({
+			issueCount: acc.issueCount + report.issueCount,
+			openCount: acc.openCount + report.openCount,
+			criticalCount: acc.criticalCount + report.criticalCount,
+			resolvedCount: acc.resolvedCount + report.resolvedCount
+		}),
+		{ issueCount: 0, openCount: 0, criticalCount: 0, resolvedCount: 0 }
+	);
+}
+
+export function buildProjectGroupDetail(
+	group: ProjectGroupSummary,
+	reports: ReportSummary[]
+): ProjectGroupDetail {
+	return {
+		slug: group.slug,
+		title: group.title,
+		reportCount: reports.length,
+		reportSlugs: reports.map((report) => report.slug),
+		...rollupReports(reports),
+		reports
+	};
+}
+
+export function buildProjectGroupDetails(
+	groupSummaries: ProjectGroupSummary[],
+	allReports: ReportSummary[]
+): ProjectGroupDetail[] {
+	return groupSummaries.map((group) =>
+		buildProjectGroupDetail(
+			group,
+			allReports.filter((report) => report.groupSlug === group.slug)
+		)
+	);
+}
+
+export function filterStandaloneReports(reports: ReportSummary[]): ReportSummary[] {
+	return reports.filter((report) => report.groupSlug === null);
+}
+
 export async function listReports(): Promise<ReportSummary[]> {
 	await ensureDbReady();
-
-	const reports: ReportSummary[] = [];
-
-	for (const slug of await listReportSlugs()) {
-		const summary = await readReportSummary(slug);
-		if (summary) reports.push(summary);
-	}
-
-	return reports;
+	const rows = await getCachedReportSummaries();
+	return rows.map(summaryFromRow);
 }
 
 export async function listStandaloneReports(): Promise<ReportSummary[]> {
-	await ensureDbReady();
-
-	const reports: ReportSummary[] = [];
-
-	for (const slug of await listStandaloneReportSlugs()) {
-		const summary = await readReportSummary(slug);
-		if (summary) reports.push(summary);
-	}
-
-	return reports;
+	return filterStandaloneReports(await listReports());
 }
 
 export async function listGroups(): Promise<ProjectGroupSummary[]> {
 	await ensureDbReady();
 
-	const stats = await listProjectGroupStats();
-	const groups: ProjectGroupSummary[] = [];
+	const [stats, rows] = await Promise.all([listProjectGroupStats(), getCachedReportSummaries()]);
 
-	for (const row of stats) {
-		const reportSlugs = await listReportsInGroup(row.slug);
-		groups.push({
-			slug: row.slug,
-			title: row.title,
-			reportCount: row.report_count,
-			issueCount: row.issue_count,
-			openCount: row.open_count,
-			criticalCount: row.critical_count,
-			resolvedCount: row.resolved_count,
-			reportSlugs
-		});
+	const slugsByGroup = new Map<string, string[]>();
+	for (const row of rows) {
+		if (!row.group_slug) continue;
+		const slugs = slugsByGroup.get(row.group_slug) ?? [];
+		slugs.push(row.slug);
+		slugsByGroup.set(row.group_slug, slugs);
 	}
 
-	return groups;
+	return stats.map((row) => ({
+		slug: row.slug,
+		title: row.title,
+		reportCount: row.report_count,
+		issueCount: row.issue_count,
+		openCount: row.open_count,
+		criticalCount: row.critical_count,
+		resolvedCount: row.resolved_count,
+		reportSlugs: slugsByGroup.get(row.slug) ?? []
+	}));
 }
 
 export async function listGroupsWithReports(): Promise<ProjectGroupDetail[]> {
-	const groups = await listGroups();
-	const details: ProjectGroupDetail[] = [];
-
-	for (const group of groups) {
-		const detail = await getGroupWithReports(group.slug);
-		if (detail) details.push(detail);
-	}
-
-	return details;
+	const [groupSummaries, allReports] = await Promise.all([listGroups(), listReports()]);
+	return buildProjectGroupDetails(groupSummaries, allReports);
 }
 
 export async function reorderGroups(orderedSlugs: string[]): Promise<void> {
@@ -301,32 +349,46 @@ export async function getGroupWithReports(groupSlug: string): Promise<ProjectGro
 	const group = await getProjectGroupDb(groupSlug);
 	if (!group) return null;
 
-	const reportSlugs = await listReportsInGroup(groupSlug);
-	const reports: ReportSummary[] = [];
+	const rows = await getCachedReportSummaries();
+	const reports = rows.filter((row) => row.group_slug === groupSlug).map(summaryFromRow);
 
-	for (const slug of reportSlugs) {
-		const summary = await readReportSummary(slug);
-		if (summary) reports.push(summary);
+	return buildProjectGroupDetail(
+		{
+			slug: group.slug,
+			title: group.title,
+			reportCount: reports.length,
+			issueCount: 0,
+			openCount: 0,
+			criticalCount: 0,
+			resolvedCount: 0,
+			reportSlugs: reports.map((report) => report.slug)
+		},
+		reports
+	);
+}
+
+export async function deleteGroup(groupSlug: string): Promise<void> {
+	validateSlug(groupSlug);
+	await ensureDbReady();
+	await deleteProjectGroupDb(groupSlug);
+}
+
+export async function deleteReport(slug: string): Promise<void> {
+	validateSlug(slug);
+	await ensureDbReady();
+
+	const evidenceSrcs = await listEvidenceSrcForReport(slug);
+
+	if (canUseR2Storage()) {
+		await Promise.all(
+			evidenceSrcs.map((src) =>
+				deleteEvidenceBySrc(src, slug).catch(() => undefined)
+			)
+		);
 	}
 
-	const rollup = reports.reduce(
-		(acc, report) => ({
-			issueCount: acc.issueCount + report.issueCount,
-			openCount: acc.openCount + report.openCount,
-			criticalCount: acc.criticalCount + report.criticalCount,
-			resolvedCount: acc.resolvedCount + report.resolvedCount
-		}),
-		{ issueCount: 0, openCount: 0, criticalCount: 0, resolvedCount: 0 }
-	);
-
-	return {
-		slug: group.slug,
-		title: group.title,
-		reportCount: reports.length,
-		reportSlugs: reports.map((r) => r.slug),
-		...rollup,
-		reports
-	};
+	await deleteReportDb(slug);
+	writeQueues.delete(slug);
 }
 
 export async function createProjectGroup(name: string): Promise<ProjectGroupSummary> {
@@ -388,18 +450,25 @@ export async function getReportGroupContext(
 } | null> {
 	if (!options?.skipExistsCheck && !(await reportExists(reportSlug))) return null;
 
-	const groupSlug = await getReportGroupSlug(reportSlug);
-	if (!groupSlug) {
+	const rows = await getCachedReportSummaries();
+	const reportRow = rows.find((row) => row.slug === reportSlug);
+	if (!reportRow?.group_slug) {
 		return { group: null, siblingReports: [] };
 	}
 
-	const detail = await getGroupWithReports(groupSlug);
-	if (!detail) {
-		return { group: null, siblingReports: [] };
-	}
+	const siblingReports = rows
+		.filter((row) => row.group_slug === reportRow.group_slug)
+		.map(summaryFromRow);
 
-	const { reports, ...group } = detail;
-	return { group, siblingReports: reports };
+	const group: ProjectGroupSummary = {
+		slug: reportRow.group_slug,
+		title: reportRow.group_title ?? reportRow.group_slug,
+		reportCount: siblingReports.length,
+		reportSlugs: siblingReports.map((report) => report.slug),
+		...rollupReports(siblingReports)
+	};
+
+	return { group, siblingReports };
 }
 
 export async function reportExists(slug: string): Promise<boolean> {
@@ -455,6 +524,7 @@ function toReportSummary(
 		issueCount: report.issues.length,
 		platform: report.testing_session.minecraft_edition,
 		version: report.report.version,
+		gameVersion: report.testing_session.game_version_tested,
 		openCount: report.summary.by_status.open + report.summary.by_status.in_progress,
 		criticalCount: report.summary.by_severity.Critical,
 		fixedCount: report.summary.by_status.fixed,
@@ -469,21 +539,9 @@ function toReportSummary(
 async function readReportSummary(slug: string): Promise<ReportSummary | null> {
 	if (!isValidSlug(slug)) return null;
 
-	try {
-		const report = await readReport(slug);
-		const [groupSlug, workflowStatus] = await Promise.all([
-			getReportGroupSlug(slug),
-			getReportWorkflowStatus(slug)
-		]);
-		let groupTitle: string | null = null;
-		if (groupSlug) {
-			const group = await getProjectGroupDb(groupSlug);
-			groupTitle = group?.title ?? null;
-		}
-		return toReportSummary(slug, report, groupSlug, groupTitle, workflowStatus);
-	} catch {
-		return null;
-	}
+	const rows = await getCachedReportSummaries();
+	const row = rows.find((entry) => entry.slug === slug);
+	return row ? summaryFromRow(row) : null;
 }
 
 export async function getWorkflowStatus(report: string): Promise<ReportWorkflowStatus> {
@@ -742,6 +800,36 @@ export async function removeEvidenceMedia(
 						})
 					: item
 			)
+		};
+
+		await writeReportData(report, nextData);
+		return toReportView(nextData);
+	});
+}
+
+export async function deleteIssue(report: string, id: string): Promise<ReportView> {
+	return enqueueReportWrite(report, async () => {
+		const current = await readReport(report);
+		const issue = current.issues.find((item) => item.id === id);
+
+		if (!issue) {
+			throw new Error(`Issue ${id} not found`);
+		}
+
+		if (canUseR2Storage()) {
+			await Promise.all(
+				(issue.evidence_media ?? []).map((media) =>
+					deleteEvidenceBySrc(media.src, report).catch(() => undefined)
+				)
+			);
+		}
+
+		const nextData: ReportData = {
+			report: current.report,
+			testing_session: current.testing_session,
+			severity_guide: current.severity_guide,
+			levels_with_no_issues_recorded: current.levels_with_no_issues_recorded,
+			issues: current.issues.filter((item) => item.id !== id)
 		};
 
 		await writeReportData(report, nextData);

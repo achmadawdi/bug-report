@@ -6,6 +6,7 @@
 	import {
 		buildIssueSearchTextMap,
 		clearFilters,
+		clearSearchFilter,
 		filterIssues,
 		filtersToSearchParams,
 		isFiltersActive,
@@ -110,6 +111,30 @@
 		filters = parseFilters(new URL(window.location.href).searchParams, data.areas);
 	}
 
+	function syncFiltersToUrlNow(nextFilters: FilterState = filters): void {
+		clearTimeout(urlSyncTimer);
+		skipUrlSyncOnce = true;
+
+		const nextParams = filtersToSearchParams(nextFilters).toString();
+		const currentParams = new URL(window.location.href).searchParams.toString();
+		if (nextParams !== currentParams) {
+			const query = nextParams ? `?${nextParams}` : '';
+			replaceState(`${reportPath(reportSlug)}${query}`, {});
+		}
+	}
+
+	function clearSearch(): void {
+		if (!filters.search.trim()) {
+			searchInput?.blur();
+			return;
+		}
+
+		const nextFilters = clearSearchFilter(filters);
+		filters = nextFilters;
+		syncFiltersToUrlNow(nextFilters);
+		searchInput?.blur();
+	}
+
 	$effect(() => {
 		const unsubscribe = subscribeNavigationSlug(() => {
 			navRevision += 1;
@@ -178,6 +203,7 @@
 		const nextParams = filtersToSearchParams(filters).toString();
 
 		clearTimeout(urlSyncTimer);
+		const delay = filters.search.trim() ? 250 : 0;
 		urlSyncTimer = setTimeout(() => {
 			if (skipUrlSyncOnce) {
 				skipUrlSyncOnce = false;
@@ -188,7 +214,7 @@
 				const query = nextParams ? `?${nextParams}` : '';
 				replaceState(`${reportPath(reportSlug)}${query}`, {});
 			}
-		}, 250);
+		}, delay);
 
 		return () => clearTimeout(urlSyncTimer);
 	});
@@ -216,8 +242,7 @@
 			}
 
 			if (event.key === 'Escape' && document.activeElement === searchInput) {
-				filters.search = '';
-				searchInput?.blur();
+				clearSearch();
 			}
 		}
 
@@ -231,14 +256,27 @@
 		detailOpen = true;
 	}
 
+	function handleIssueDeleted(id: string) {
+		if (selectedIssue?.id === id) {
+			selectedIssue = null;
+			detailOpen = false;
+		}
+	}
+
 	function exportFilteredJson() {
 		const { summary: _summary, ...reportData }: ReportView = report;
+		const exportFilters = {
+			...filters,
+			view: 'all' as const,
+			status: 'all' as const
+		};
+		const issuesForExport = filterIssues(report.issues, exportFilters, issueSearchTextMap);
 		const payload = {
 			...reportData,
-			issues: filteredIssues,
+			issues: issuesForExport,
 			report_slug: reportSlug,
 			exported_at: new Date().toISOString(),
-			...(isFiltersActive(filters) ? { filters } : {})
+			...(isFiltersActive(exportFilters) ? { filters: exportFilters } : {})
 		};
 
 		const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -251,7 +289,12 @@
 	}
 
 	function exportPdf() {
-		const params = filtersToSearchParams(filters).toString();
+		const exportFilters = {
+			...filters,
+			view: 'all' as const,
+			status: 'all' as const
+		};
+		const params = filtersToSearchParams(exportFilters).toString();
 		window.open(reportPrintPath(reportSlug, params), '_blank');
 	}
 
@@ -263,6 +306,7 @@
 
 	function handleClearFilters() {
 		filters = clearFilters();
+		syncFiltersToUrlNow(filters);
 	}
 </script>
 
@@ -296,6 +340,7 @@
 				currentGroupSlug={groupContext?.group?.slug ?? null}
 				{workflowStatus}
 				{workflowNote}
+				issueCount={report.issues.length}
 				onExportJson={exportFilteredJson}
 				onExportPdf={exportPdf}
 			/>
@@ -317,6 +362,7 @@
 							onExportJson={exportFilteredJson}
 							onExportPdf={exportPdf}
 							onAdd={() => (addOpen = true)}
+							onClearSearch={clearSearch}
 							onClearFilters={handleClearFilters}
 						/>
 
@@ -340,7 +386,11 @@
 											? 'opacity-60'
 											: ''}
 									>
-										<BugCard {issue} onclick={() => openIssue(issue)} />
+										<BugCard
+											{issue}
+											onclick={() => openIssue(issue)}
+											onDeleted={handleIssueDeleted}
+										/>
 									</div>
 								{/each}
 							</section>
