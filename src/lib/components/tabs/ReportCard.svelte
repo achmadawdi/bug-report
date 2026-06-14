@@ -2,7 +2,7 @@
 	import type { ReportSummary } from '$lib/server/store.js';
 	import { Card } from '$lib/components/ui/card/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
-	import { displayText } from '$lib/format.js';
+	import { displayText, displayDate } from '$lib/format.js';
 	import FolderKanbanIcon from '@lucide/svelte/icons/folder-kanban';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import BugIcon from '@lucide/svelte/icons/bug';
@@ -19,21 +19,25 @@
 	} from '$lib/constants.js';
 	import { cn } from '$lib/utils.js';
 	import DragHandle from '$lib/components/sortable/DragHandle.svelte';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 
 	let {
 		report,
 		onclick,
+		onDelete,
 		variant = 'default',
 		dragHandleAttrs = null
 	}: {
 		report: ReportSummary;
 		onclick: () => void;
+		onDelete?: (report: ReportSummary) => void;
 		variant?: 'default' | 'nested';
 		dragHandleAttrs?: Record<string, unknown> | null;
 	} = $props();
 
 	const meta = $derived(
-		[displayText(report.platform), displayText(report.version)]
+		[displayText(report.gameVersion), displayDate(report.testDate)]
 			.filter((value) => value && value !== '—')
 			.join(' · ')
 	);
@@ -56,14 +60,15 @@
 	const iconSize = $derived(isNested ? 'size-9' : 'size-10');
 </script>
 
-<button
-	type="button"
-	class="group w-full text-left"
-	{onclick}
-	onpointerenter={() => preloadRoute(reportPath(report.slug))}
-	onfocus={() => preloadRoute(reportPath(report.slug))}
->
-	<Card class={cn('gap-0 py-0 transition-colors', surfaceStyle)}>
+<div class="group/report relative w-full">
+	<button
+		type="button"
+		class="w-full text-left"
+		{onclick}
+		onpointerenter={() => preloadRoute(reportPath(report.slug))}
+		onfocus={() => preloadRoute(reportPath(report.slug))}
+	>
+		<Card class={cn('gap-0 py-0 transition-colors', surfaceStyle)}>
 		<div class={cn('flex flex-col gap-2', cardPadding)}>
 			<div class="flex items-start gap-2.5">
 				{#if dragHandleAttrs}
@@ -74,7 +79,7 @@
 						'flex shrink-0 items-center justify-center rounded-md border p-1 transition-colors',
 						isResolved
 							? 'border-border-subtle bg-surface-subtle/50 text-muted-foreground/60'
-							: 'border-border bg-secondary/30 text-muted-foreground group-hover:border-primary-muted/40 group-hover:bg-primary-surface/30 group-hover:text-primary',
+							: 'border-border bg-secondary/30 text-muted-foreground group-hover/report:border-primary-muted/40 group-hover/report:bg-primary-surface/30 group-hover/report:text-primary',
 						iconSize
 					)}
 				>
@@ -106,8 +111,8 @@
 						class={cn(
 							'mt-0.5 size-4 shrink-0 transition-opacity',
 							isResolved
-								? 'text-muted-foreground/40 opacity-0 group-hover:opacity-60'
-								: 'text-muted-foreground opacity-0 group-hover:opacity-100'
+								? 'text-muted-foreground/40 opacity-0 group-hover/report:opacity-60'
+								: 'text-muted-foreground opacity-0 group-hover/report:opacity-100'
 						)}
 					/>
 				</div>
@@ -172,4 +177,21 @@
 			</div>
 		</div>
 	</Card>
-</button>
+	</button>
+
+	{#if onDelete}
+		<Button
+			type="button"
+			variant="ghost"
+			size="icon-sm"
+			class="absolute top-2 right-2 z-10 size-7 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover/report:opacity-100"
+			aria-label="Delete report"
+			onclick={(event) => {
+				event.stopPropagation();
+				onDelete(report);
+			}}
+		>
+			<Trash2Icon class="size-3.5" />
+		</Button>
+	{/if}
+</div>

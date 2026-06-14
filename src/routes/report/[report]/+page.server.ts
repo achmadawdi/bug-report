@@ -3,6 +3,8 @@ import {
 	addEvidenceMedia,
 	addIssue,
 	assignReportToGroup,
+	deleteIssue,
+	deleteReport,
 	getReportGroupContext,
 	getWorkflowInfo,
 	readReport,
@@ -16,6 +18,7 @@ import {
 import { resolveGroupAssignment } from '$lib/server/groups.js';
 import { mergeAreas } from '$lib/areas.js';
 import { parseFilters } from '$lib/filters.js';
+import { isValidSlug, reportExists } from '$lib/server/store.js';
 import {
 	detectMediaTypeFromFile,
 	detectMediaTypeFromUrl,
@@ -34,6 +37,10 @@ import type { Actions, PageServerLoad } from './$types.js';
 
 export const load: PageServerLoad = async ({ params, url, parent, depends }) => {
 	depends(`report:${params.report}`);
+
+	if (!isValidSlug(params.report) || !(await reportExists(params.report))) {
+		error(404, `Report "${params.report}" not found`);
+	}
 
 	const [{ groups }, reportResult, groupContext, workflow] = await Promise.all([
 		parent(),
@@ -170,6 +177,24 @@ export const actions: Actions = {
 		} catch (err) {
 			return fail(500, {
 				message: err instanceof Error ? err.message : 'Failed to update status.'
+			});
+		}
+	},
+
+	deleteIssue: async ({ request, params }) => {
+		const formData = await request.formData();
+		const id = String(formData.get('id') ?? '').trim();
+
+		if (!id) {
+			return fail(400, { message: 'Issue ID is required.' });
+		}
+
+		try {
+			const report = await deleteIssue(params.report, id);
+			return { success: true, message: `${id} deleted.`, report, deletedIssueId: id };
+		} catch (err) {
+			return fail(500, {
+				message: err instanceof Error ? err.message : 'Failed to delete issue.'
 			});
 		}
 	},
@@ -343,6 +368,17 @@ export const actions: Actions = {
 		} catch (err) {
 			return fail(500, {
 				message: err instanceof Error ? err.message : 'Failed to update report status.'
+			});
+		}
+	},
+
+	deleteReport: async ({ params }) => {
+		try {
+			await deleteReport(params.report);
+			return { success: true, deleted: true };
+		} catch (err) {
+			return fail(500, {
+				message: err instanceof Error ? err.message : 'Failed to delete report.'
 			});
 		}
 	}

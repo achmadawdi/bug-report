@@ -25,6 +25,7 @@
 	import SunIcon from '@lucide/svelte/icons/sun';
 	import MoonIcon from '@lucide/svelte/icons/moon';
 	import { toggleMode, mode } from 'mode-watcher';
+	import { fade } from 'svelte/transition';
 
 	let { projects, groups = [] }: { projects: ReportSummary[]; groups?: ProjectGroupSummary[] } =
 		$props();
@@ -157,9 +158,10 @@
 					role="tab"
 					tabindex="0"
 					aria-selected={isActive}
-					class="group relative flex max-w-[220px] min-w-[120px] cursor-pointer items-center border-r border-border border-b-2 px-3 text-sm transition-colors {isActive
-						? 'border-b-primary text-foreground'
-						: 'border-b-transparent text-muted-foreground hover:text-foreground'}"
+					transition:fade={{ duration: 150 }}
+					class="group relative flex max-w-[220px] min-w-[120px] cursor-pointer items-center border-r border-border border-b-2 border-b-transparent px-3 text-sm transition-colors {isActive
+						? 'text-foreground'
+						: 'text-muted-foreground hover:text-foreground'}"
 					onpointerenter={() => preloadRoute(reportPath(tab.slug))}
 					onfocus={() => preloadRoute(reportPath(tab.slug))}
 					onclick={() => selectTab(tab.slug)}
@@ -171,6 +173,12 @@
 					}}
 				>
 					<span class="truncate pr-5">{tab.title}</span>
+					{#if isActive}
+						<div
+							class="absolute bottom-[-2px] left-0 right-0 h-[2px] bg-primary"
+							transition:fade={{ duration: 150 }}
+						></div>
+					{/if}
 					<button
 						type="button"
 						class="absolute top-1/2 right-1.5 -translate-y-1/2 rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-background/80 {isActive

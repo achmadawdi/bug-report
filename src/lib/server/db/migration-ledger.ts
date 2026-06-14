@@ -31,6 +31,15 @@ export async function ensureMigrationLedger(sql: Sql): Promise<void> {
 	await sql.query(CREATE_SCHEMA_MIGRATIONS_SQL, []);
 }
 
+export async function getAppliedMigrationIds(sql: Sql): Promise<Set<MigrationId>> {
+	const rows = (await sql`
+		SELECT id
+		FROM schema_migrations
+	`) as { id: MigrationId }[];
+
+	return new Set(rows.map((row) => row.id));
+}
+
 export async function isMigrationApplied(sql: Sql, id: MigrationId): Promise<boolean> {
 	const rows = (await sql`
 		SELECT 1
@@ -92,12 +101,14 @@ export async function bootstrapLedgerForExistingDatabase(sql: Sql): Promise<bool
 export async function runMigrationStep(
 	sql: Sql,
 	id: MigrationId,
-	run: () => Promise<void>
+	run: () => Promise<void>,
+	applied?: Set<MigrationId>
 ): Promise<void> {
-	if (await isMigrationApplied(sql, id)) {
+	if (applied ? applied.has(id) : await isMigrationApplied(sql, id)) {
 		return;
 	}
 
 	await run();
 	await markMigrationApplied(sql, id);
+	applied?.add(id);
 }

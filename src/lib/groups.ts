@@ -28,3 +28,13 @@ export function saveLastVisitedInGroup(groupSlug: string, projectSlug: string): 
 export function getLastVisitedInGroup(groupSlug: string): string | null {
 	return loadLastVisitedInGroup()[groupSlug] ?? null;
 }
+
+export function clearLastVisitedForGroup(groupSlug: string): void {
+	if (typeof localStorage === 'undefined') return;
+
+	const map = loadLastVisitedInGroup();
+	if (!(groupSlug in map)) return;
+
+	delete map[groupSlug];
+	localStorage.setItem(LAST_VISITED_KEY, JSON.stringify(map));
+}

@@ -1,6 +1,8 @@
 export {
 	ensureReady as ensureDbReady,
 	getReport,
+	getCachedReportSummaries,
+	bustReportSummariesCache,
 	listReportSlugs,
 	listStandaloneReportSlugs,
 	reportExists,
@@ -10,6 +12,9 @@ export {
 	projectGroupExists,
 	createProjectGroup,
 	getProjectGroup,
+	deleteProjectGroup,
+	listEvidenceSrcForReport,
+	deleteReport,
 	listProjectGroupStats,
 	getReportGroupSlug,
 	listReportsInGroup,
@@ -38,3 +43,5 @@ export function canUseR2Storage(): boolean {
 export function useR2Storage(): boolean {
 	return checkR2Storage();
 }
+
+export type { ReportSummaryRow } from '$lib/server/db/repository.js';

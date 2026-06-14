@@ -19,6 +19,8 @@ export const load: PageServerLoad = async ({ params, url }) => {
 
 	const areas = mergeAreas([...new Set(report.issues.map((issue) => issue.area))]);
 	const filters = parseFilters(url.searchParams, areas);
+	filters.view = 'all';
+	filters.status = 'all';
 	const issues = filterIssues(report.issues, filters);
 
 	return { report, issues, filters, reportSlug: params.report };
